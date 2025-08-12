@@ -1,0 +1,57 @@
+INA219 Power Monitoring - Code Quality Report
+==================================================
+Timestamp: 20250812_235557
+
+
+AUTOFIX Results:
+--------------------
+{
+  "python": {
+    "ruff_autofix": {
+      "returncode": 1,
+      "stdout": "src\\python\\dashboard\\app.py:23:89: E501 Line too long (93 > 88)\n   |\n21 |         self.app = dash.Dash(__name__)\n22 |         self.data_queue = queue.Queue()\n23 |         self.data_buffer = pd.DataFrame(columns=['timestamp', 'voltage', 'current', 'power'])\n   |                                                                                         ^^^^^ E501\n24 |         self.max_buffer_size = 1000\n25 |         self.serial_port = None\n   |\n\nsrc\\python\\dashboard\\app.py:225:89: E501 Line too long (92 > 88)\n    |\n223 |                 data_point = self.data_queue.get_nowait()\n224 |                 new_row = pd.DataFrame([data_point])\n225 |                 self.data_buffer = pd.concat([self.data_buffer, new_row], ignore_index=True)\n    |                                                                                         ^^^^ E501\n226 |\n227 |                 # 버퍼 크기 제한\n    |\n\nsrc\\python\\dashboard\\app.py:243:18: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n241 |             mode='lines+markers',\n242 |             name='전압 (V)',\n243 |             line=dict(color='blue', width=2),\n    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^ C408\n244 |             marker=dict(size=4)\n245 |         ))\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:244:20: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n242 |             name='전압 (V)',\n243 |             line=dict(color='blue', width=2),\n244 |             marker=dict(size=4)\n    |                    ^^^^^^^^^^^^ C408\n245 |         ))\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:265:18: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n263 |             mode='lines+markers',\n264 |             name='전류 (mA)',\n265 |             line=dict(color='red', width=2),\n    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^ C408\n266 |             marker=dict(size=4)\n267 |         ))\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:266:20: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n264 |             name='전류 (mA)',\n265 |             line=dict(color='red', width=2),\n266 |             marker=dict(size=4)\n    |                    ^^^^^^^^^^^^ C408\n267 |         ))\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:287:18: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n285 |             mode='lines+markers',\n286 |             name='전력 (mW)',\n287 |             line=dict(color='green', width=2),\n    |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ C408\n288 |             marker=dict(size=4)\n289 |         ))\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:288:20: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n286 |             name='전력 (mW)',\n287 |             line=dict(color='green', width=2),\n288 |             marker=dict(size=4)\n    |                    ^^^^^^^^^^^^ C408\n289 |         ))\n    |\n    = help: Rewrite as a literal\n\nFound 81 errors (73 fixed, 8 remaining).\nNo fixes available (6 hidden fixes can be enabled with the `--unsafe-fixes` option).\n",
+      "stderr": "",
+      "fixed_count": 1
+    },
+    "black_format": {
+      "returncode": 0,
+      "stdout": "",
+      "stderr": "reformatted E:\\project\\03_P_ina219_powerMonitoring\\src\\python\\dashboard\\app.py\n\nAll done! \\u2728 \\U0001f370 \\u2728\n1 file reformatted, 1 file left unchanged.\n",
+      "formatted": true
+    }
+  }
+}
+
+PYTHON Results:
+--------------------
+{
+  "ruff": {
+    "returncode": 1,
+    "stdout": "src\\python\\dashboard\\app.py:61:86: E501 Line too long (95 > 88)\n   |\n59 | …                         type=\"text\",\n60 | …                         value=\"COM3\",  # Windows 기본값\n61 | …                         placeholder=\"예: COM3 (Windows) 또는 /dev/ttyUSB0 (Linux)\",\n   |                                                                               ^^^^^^^ E501\n62 | …                     ),\n63 | …                     html.Button(\"연결\", id=\"connect-btn\", n_clicks=0),\n   |\n\nsrc\\python\\dashboard\\app.py:273:22: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n271 |                 mode=\"lines+markers\",\n272 |                 name=\"전압 (V)\",\n273 |                 line=dict(color=\"blue\", width=2),\n    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^ C408\n274 |                 marker=dict(size=4),\n275 |             )\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:274:24: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n272 |                 name=\"전압 (V)\",\n273 |                 line=dict(color=\"blue\", width=2),\n274 |                 marker=dict(size=4),\n    |                        ^^^^^^^^^^^^ C408\n275 |             )\n276 |         )\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:297:22: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n295 |                 mode=\"lines+markers\",\n296 |                 name=\"전류 (mA)\",\n297 |                 line=dict(color=\"red\", width=2),\n    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^ C408\n298 |                 marker=dict(size=4),\n299 |             )\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:298:24: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n296 |                 name=\"전류 (mA)\",\n297 |                 line=dict(color=\"red\", width=2),\n298 |                 marker=dict(size=4),\n    |                        ^^^^^^^^^^^^ C408\n299 |             )\n300 |         )\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:321:22: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n319 |                 mode=\"lines+markers\",\n320 |                 name=\"전력 (mW)\",\n321 |                 line=dict(color=\"green\", width=2),\n    |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^ C408\n322 |                 marker=dict(size=4),\n323 |             )\n    |\n    = help: Rewrite as a literal\n\nsrc\\python\\dashboard\\app.py:322:24: C408 Unnecessary `dict()` call (rewrite as a literal)\n    |\n320 |                 name=\"전력 (mW)\",\n321 |                 line=dict(color=\"green\", width=2),\n322 |                 marker=dict(size=4),\n    |                        ^^^^^^^^^^^^ C408\n323 |             )\n324 |         )\n    |\n    = help: Rewrite as a literal\n\nFound 7 errors.\nNo fixes available (6 hidden fixes can be enabled with the `--unsafe-fixes` option).\n",
+    "stderr": "",
+    "issues_count": 14
+  },
+  "mypy": {
+    "returncode": 1,
+    "stdout": "src\\python\\dashboard\\app.py:13: error: Library stubs not installed for \"pandas\"  [import-untyped]\nsrc\\python\\dashboard\\app.py:13: note: Hint: \"python3 -m pip install pandas-stubs\"\nsrc\\python\\dashboard\\app.py:13: note: (or run \"mypy --install-types\" to install all missing stub packages)\nsrc\\python\\dashboard\\app.py:14: error: Skipping analyzing \"plotly.graph_objs\": module is installed, but missing library stubs or py.typed marker  [import-untyped]\nsrc\\python\\dashboard\\app.py:14: note: See https://mypy.readthedocs.io/en/stable/running_mypy.html#missing-imports\nsrc\\python\\dashboard\\app.py:14: error: Skipping analyzing \"plotly\": module is installed, but missing library stubs or py.typed marker  [import-untyped]\nsrc\\python\\dashboard\\app.py:15: error: Library stubs not installed for \"serial\"  [import-untyped]\nsrc\\python\\dashboard\\app.py:15: note: Hint: \"python3 -m pip install types-pyserial\"\nsrc\\python\\dashboard\\app.py:20: error: Function is missing a return type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:20: note: Use \"-> None\" if function does not return a value\nsrc\\python\\dashboard\\app.py:22: error: Need type annotation for \"data_queue\"  [var-annotated]\nsrc\\python\\dashboard\\app.py:34: error: Function is missing a return type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:34: note: Use \"-> None\" if function does not return a value\nsrc\\python\\dashboard\\app.py:124: error: Function is missing a return type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:132: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:157: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:191: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:209: error: Function is missing a return type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:219: error: Function is missing a return type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:219: note: Use \"-> None\" if function does not return a value\nsrc\\python\\dashboard\\app.py:246: error: Function is missing a return type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:246: note: Use \"-> None\" if function does not return a value\nsrc\\python\\dashboard\\app.py:263: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:287: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:311: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:335: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:360: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:422: error: Function is missing a type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:431: error: Function is missing a return type annotation  [no-untyped-def]\nsrc\\python\\dashboard\\app.py:431: note: Use \"-> None\" if function does not return a value\nFound 21 errors in 1 file (checked 2 source files)\n",
+    "stderr": "",
+    "issues_count": 21
+  }
+}
+
+ARDUINO Results:
+--------------------
+{
+  "basic_analysis": {
+    "issues": [],
+    "count": 0
+  },
+  "ina219_analysis": {
+    "issues": [
+      "E:\\project\\03_P_ina219_powerMonitoring\\src\\arduino\\main.ino:164: Current output should include units",
+      "E:\\project\\03_P_ina219_powerMonitoring\\src\\arduino\\main.ino:172: Current output should include units"
+    ],
+    "recommendations": [],
+    "count": 2
+  }
+}
