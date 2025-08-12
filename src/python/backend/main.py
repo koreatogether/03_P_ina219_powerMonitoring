@@ -259,7 +259,13 @@ class PowerMonitoringServer:
             font-size: 11px;
             color: #6c757d;
         }
+        
+        #powerChart {
+            background-color: white;
+            border-radius: 5px;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="header">
@@ -328,6 +334,11 @@ class PowerMonitoringServer:
     </div>
     
     <div class="panel">
+        <h3>� Resal-time Chart</h3>
+        <canvas id="powerChart" width="800" height="300"></canvas>
+    </div>
+    
+    <div class="panel">
         <h3>📋 Message Log</h3>
         <div class="log" id="messageLog"></div>
     </div>
@@ -339,6 +350,39 @@ class PowerMonitoringServer:
         let startTime = null;
         let lastMessageTime = 0;
         let messageRate = 0;
+        
+        // Chart.js 설정
+        let powerChart = null;
+        const maxDataPoints = 60; // 60초 버퍼
+        const chartData = {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Voltage (V)',
+                    data: [],
+                    borderColor: 'rgb(255, 99, 132)',
+                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.1
+                },
+                {
+                    label: 'Current (A)',
+                    data: [],
+                    borderColor: 'rgb(54, 162, 235)',
+                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.1
+                },
+                {
+                    label: 'Power (W)',
+                    data: [],
+                    borderColor: 'rgb(255, 205, 86)',
+                    backgroundColor: 'rgba(255, 205, 86, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.1
+                }
+            ]
+        };
         
         function log(message, type = 'info') {
             const logElement = document.getElementById('messageLog');
@@ -399,15 +443,22 @@ class PowerMonitoringServer:
                     
                     if (data.type === 'measurement') {
                         const measurement = data.data;
+                        
+                        // 실시간 수치 업데이트
                         document.getElementById('voltage').textContent = measurement.v.toFixed(3);
                         document.getElementById('current').textContent = measurement.a.toFixed(3);
                         document.getElementById('power').textContent = measurement.w.toFixed(3);
+                        
+                        // 차트에 데이터 추가
+                        addDataToChart(measurement.v, measurement.a, measurement.w);
                         
                         document.getElementById('lastData').innerHTML = 
                             `V=${measurement.v}V, A=${measurement.a}A, W=${measurement.w}W<br>` +
                             `Seq=${measurement.seq}, Mode=${measurement.mode}, Status=${measurement.status}`;
                         
-                        log(`📊 Data: V=${measurement.v.toFixed(3)}V A=${measurement.a.toFixed(3)}A W=${measurement.w.toFixed(3)}W`, 'info');
+                        // 파워 계산 검증
+                        const calculatedPower = (measurement.v * measurement.a).toFixed(3);
+                        log(`📊 Data: V=${measurement.v.toFixed(3)}V A=${measurement.a.toFixed(3)}A W=${measurement.w.toFixed(3)}W (calc: ${calculatedPower}W)`, 'info');
                     } else if (data.type === 'status') {
                         log(`📢 Status: ${data.message}`, 'info');
                     } else {
@@ -443,13 +494,118 @@ class PowerMonitoringServer:
             }
         }
         
+        function clearChart() {
+            if (powerChart) {
+                chartData.labels = [];
+                chartData.datasets[0].data = [];
+                chartData.datasets[1].data = [];
+                chartData.datasets[2].data = [];
+                powerChart.update();
+                log('📈 Chart cleared', 'info');
+            }
+        }
+        
         function clearLog() {
             document.getElementById('messageLog').innerHTML = '';
-            log('📋 Log cleared', 'info');
+            clearChart();
+            log('📋 Log and chart cleared', 'info');
+        }
+        
+        function initChart() {
+            const ctx = document.getElementById('powerChart').getContext('2d');
+            powerChart = new Chart(ctx, {
+                type: 'line',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Real-time Power Monitoring (Last 60 seconds)'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Voltage (V)',
+                                color: 'rgb(255, 99, 132)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            min: 0,
+                            max: 6
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Current (A) / Power (W)',
+                                color: 'rgb(54, 162, 235)'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            min: 0,
+                            max: 5
+                        }
+                    },
+                    animation: {
+                        duration: 200
+                    }
+                }
+            });
+        }
+        
+        function addDataToChart(voltage, current, power) {
+            const now = new Date();
+            const timeLabel = now.toLocaleTimeString();
+            
+            // 데이터 추가
+            chartData.labels.push(timeLabel);
+            chartData.datasets[0].data.push(voltage);
+            chartData.datasets[1].data.push(current);
+            chartData.datasets[2].data.push(power);
+            
+            // 60초 버퍼 유지 (오래된 데이터 제거)
+            if (chartData.labels.length > maxDataPoints) {
+                chartData.labels.shift();
+                chartData.datasets[0].data.shift();
+                chartData.datasets[1].data.shift();
+                chartData.datasets[2].data.shift();
+            }
+            
+            // 차트 업데이트
+            if (powerChart) {
+                powerChart.update('none'); // 애니메이션 없이 빠른 업데이트
+            }
         }
         
         window.onload = function() {
             log('🚀 WebSocket Dashboard Started', 'success');
+            log('📈 Initializing real-time chart...', 'info');
+            initChart();
             log('Click "Connect" to start receiving real-time data', 'info');
         };
         
