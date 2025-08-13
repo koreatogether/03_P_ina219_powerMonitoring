@@ -9,6 +9,12 @@
 .pio/
 *.pio
 
+# PlatformIO 환경별 라이브러리 (UNO R4 WiFi만 사용)
+.pio/libdeps/uno/
+.pio/libdeps/nano/
+.pio/libdeps/esp32/
+.pio/libdeps/mega/
+
 # Python 가상환경
 .venv/
 venv/
