@@ -1,224 +1,152 @@
-# INA219 Power Monitoring System
+# INA219 지능형 전력 모니터링 시스템
 
-Arduino와 Dash를 활용한 실시간 전력 모니터링 시스템
+![Python](https://img.shields.io/badge/python-3.9+-blue.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.116.1-green.svg)
+![Docker](https://img.shields.io/badge/docker-supported-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Tests](https://img.shields.io/badge/tests-passing-green.svg)
+
+Arduino UNO R4 WiFi와 FastAPI를 활용한 **완전한 지능형 전력 모니터링 시스템**
 
 ## 🎯 프로젝트 개요
 
-INA219 센서를 사용하여 전압, 전류, 전력을 실시간으로 측정하고 웹 대시보드를 통해 시각화하는 시스템입니다.
+INA219 센서를 사용하여 전압, 전류, 전력을 실시간으로 측정하고, 고급 데이터 분석(이동평균, 이상치 탐지)을 수행하며, 웹 대시보드를 통해 시각화하는 **산업용 수준의 지능형 모니터링 시스템**입니다.
 
-### 주요 기능
+### ✨ 주요 기능
 
-- **실시간 전력 측정**: INA219 센서를 통한 정확한 전압/전류/전력 측정
-- **웹 대시보드**: Dash를 활용한 실시간 데이터 시각화
-- **데이터 로깅**: 측정 데이터의 저장 및 분석
-- **다중 플랫폼 지원**: Arduino Uno, Nano, ESP32 지원
-- **성능 모니터링**: 시스템 성능 분석 및 최적화
+- **🤖 Arduino 시뮬레이터**: 실제 하드웨어 없이도 5가지 모드(정상, 부하 급증, 전압 강하 등)를 시뮬레이션하여 완벽한 개발 및 테스트 환경을 제공합니다.
+- **📊 실시간 모니터링 대시보드**: Chart.js 기반의 멀티라인 실시간 그래프(전압, 전류, 전력)와 1분 통계 패널을 제공합니다.
+- **💾 48시간 데이터 저장 및 분석**: SQLite를 사용하여 48시간 동안의 데이터를 저장하고, 히스토리 차트를 통해 시계열 분석 및 CSV 다운로드를 지원합니다.
+- **🧠 지능형 데이터 분석**: 이동평균(1분/5분/15분) 및 Z-score & IQR 듀얼 이상치 탐지 엔진을 통해 데이터의 이상 징후를 실시간으로 분석하고 알립니다.
+- **🐳 Docker 지원**: 멀티스테이지 Docker 빌드를 통해 개발, 테스트, 운영 환경을 분리하고, 35MB의 이미지를 최적화하여 효율적인 배포를 지원합니다.
+- **🛡️ 보안 강화**: 운영 환경에서 API 문서를 비활성화하고, 안전한 예외 처리를 적용하여 시스템 보안을 강화했습니다.
+- **✅ 높은 코드 품질**: Ruff와 Black을 이용한 자동 코드 포맷팅 및 품질 검사를 통해 900개 이상의 이슈를 해결하여 코드의 일관성과 안정성을 확보했습니다.
 
 ## 🛠️ 기술 스택
 
-### Hardware
-- **Arduino**: Uno, Nano, ESP32
-- **센서**: INA219 전력 측정 센서
-- **통신**: I2C, Serial
+### 🔧 Hardware
+- **Arduino UNO R4 WiFi**
+- **INA219 센서**
 
-### Software
-- **Python**: 데이터 처리 및 대시보드
-- **Arduino C++**: 펌웨어
-- **Dash**: 웹 대시보드 프레임워크
-- **PlatformIO**: 임베디드 개발 환경
+### 💻 Backend
+- **Python 3.9+**
+- **FastAPI 0.116.1**
+- **Uvicorn**
+- **WebSocket**
+- **SQLite**
+- **NumPy**
+- **pySerial**
 
-### 개발 도구
-- **uv**: Python 패키지 관리
-- **Ruff**: 코드 린팅 및 포맷팅
-- **MyPy**: 타입 검사
-- **Pytest**: 테스트 프레임워크
-- **Pre-commit**: Git hooks
+### 🌐 Frontend
+- **Chart.js 4.4.4**
+- **HTML5/CSS3/JavaScript**
+
+### 🐳 DevOps & 배포
+- **Docker** & **Docker Compose**
+- **GitHub Actions**
+
+### 🔍 개발 도구 & 품질 관리
+- **Ruff + Black**
+- **MyPy**
+- **Pytest**
+- **TruffleHog**
 
 ## 🚀 빠른 시작
 
-### 1. 환경 설정
+### 📦 방법 1: Docker로 즉시 실행 (권장)
 
 ```bash
-# 프로젝트 클론
-git clone <repository-url>
+# 1. 저장소 클론
+git clone https://github.com/koreatogether/03_P_ina219_powerMonitoring.git
 cd 03_P_ina219_powerMonitoring
 
-# 개발 환경 자동 설정
-python tools/setup_dev_environment.py
+# 2. Docker Compose로 운영 서비스 실행
+docker-compose up ina219-monitor
 
-# 또는 수동 설정
-python -m uv sync --extra dev
+# 3. 브라우저에서 접속
+open http://localhost:8000
 ```
 
-### 2. 빠른 환경 검증
+### 🐍 방법 2: Python 직접 실행
 
 ```bash
-python tools/quick_test.py
+# 1. 의존성 설치
+pip install -r src/python/backend/requirements.txt
+
+# 2. 백엔드 서버 실행
+python src/python/backend/main.py
+
+# 3. 웹 대시보드 접속
+open http://localhost:8000
 ```
 
-### 3. Arduino 펌웨어 업로드
+### 🎮 Arduino 시뮬레이터 (하드웨어 없이 테스트)
 
 ```bash
-# Arduino Uno용
-pio run -e uno -t upload
+# 기본 30초 테스트
+python src/python/simulator/test_simulator.py
 
-# ESP32용
-pio run -e esp32 -t upload
-```
-
-### 4. 대시보드 실행
-
-```bash
-python -m uv run python src/python/dashboard/app.py
+# Mock 시뮬레이터만 사용
+python src/python/simulator/test_simulator.py --mock
 ```
 
 ## 📁 프로젝트 구조
 
 ```
-03_P_ina219_powerMonitoring/
-├── src/
-│   ├── arduino/                 # Arduino 펌웨어
-│   │   ├── main.ino            # 메인 Arduino 코드
-│   │   └── lib/                # 라이브러리
-│   ├── python/
-│   │   ├── dashboard/          # Dash 웹 대시보드
-│   │   │   ├── app.py         # 메인 대시보드 앱
-│   │   │   ├── components/    # UI 컴포넌트
-│   │   │   └── callbacks/     # 대시보드 콜백
-│   │   └── data_processing/   # 데이터 처리 모듈
-│   │       ├── collector.py   # 데이터 수집
-│   │       ├── analyzer.py    # 데이터 분석
-│   │       └── storage.py     # 데이터 저장
-│   └── ina219_power_monitoring/ # Python 패키지
-├── tests/                      # 테스트 코드
-├── tools/                      # 개발 도구
-│   ├── setup_dev_environment.py
-│   ├── quick_test.py
-│   ├── code_quality_checker.py
-│   ├── build_and_test.py
-│   ├── performance_analyzer.py
-│   └── run_all_checks.py
-├── docs/                       # 문서
-├── benchmarks/                 # 성능 벤치마크
-├── data/                       # 데이터 파일
-│   ├── raw/                   # 원시 데이터
-│   └── processed/             # 처리된 데이터
-├── logs/                       # 로그 파일
-├── pyproject.toml             # Python 프로젝트 설정
-├── platformio.ini             # PlatformIO 설정
-└── README.md
-```
-
-## 🔧 개발 도구 사용법
-
-### 전체 검사 실행
-```bash
-python tools/run_all_checks.py
-```
-
-### 개별 도구 실행
-```bash
-# 코드 품질 검사
-python tools/code_quality_checker.py
-
-# 빌드 및 테스트
-python tools/build_and_test.py
-
-# 성능 분석
-python tools/performance_analyzer.py
-```
-
-## 📊 하드웨어 연결
-
-### INA219 연결도
-```
-Arduino Uno/Nano    INA219
-GND        ------>  GND
-5V         ------>  VCC
-A4 (SDA)   ------>  SDA
-A5 (SCL)   ------>  SCL
-```
-
-### ESP32 연결도
-```
-ESP32      INA219
-GND   ---> GND
-3.3V  ---> VCC
-21    ---> SDA
-22    ---> SCL
-```
-
-## 📈 사용 예시
-
-### 1. 기본 전력 측정
-```python
-from src.python.data_processing.collector import PowerCollector
-
-collector = PowerCollector(port='COM3')  # Windows
-# collector = PowerCollector(port='/dev/ttyUSB0')  # Linux
-
-data = collector.collect_data(duration=60)  # 60초간 데이터 수집
-print(f"평균 전력: {data['power'].mean():.2f}W")
-```
-
-### 2. 실시간 모니터링
-```python
-from src.python.dashboard.app import app
-
-if __name__ == '__main__':
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+src/
+├── arduino/
+│   ├── uno_r4_wifi_ina219_simulator.ino     # JSON 기반 시뮬레이터
+│   └── README.md
+├── python/
+│   ├── simulator/                            # Phase 1: 시뮬레이터 패키지
+│   │   ├── __init__.py
+│   │   ├── arduino_mock.py
+│   │   ├── simulator_interface.py
+│   │   └── test_simulator.py
+│   └── backend/                              # Phase 2-4: 웹 백엔드 시스템
+│       ├── main.py                           # FastAPI 메인 서버
+│       ├── database.py
+│       ├── requirements.txt
+│       └── requirements-dev.txt
+└── docs/
+    ├── architecture/
+    └── release.md
 ```
 
 ## 🧪 테스트
 
-### 단위 테스트 실행
+### Docker 기반 테스트 (권장)
 ```bash
-python -m uv run pytest tests/ -v
+# 전체 테스트 실행
+docker-compose -f docker-compose.test.yml up --build
 ```
 
-### 성능 벤치마크
+### 로컬 테스트
 ```bash
-python -m uv run python benchmarks/power_measurement_benchmark.py
+# 개발 의존성 설치
+pip install -r src/python/backend/requirements-dev.txt
+
+# Pytest 실행
+pytest
 ```
 
-## 📋 요구사항
+## 🔄 업데이트 로그
 
-### 하드웨어
-- Arduino Uno/Nano 또는 ESP32
-- INA219 전력 측정 센서
-- USB 케이블
-- 점퍼 와이어
+### v4.2.1 (2025-08-13)
+- **보안 강화**: 운영 환경 API 문서 비활성화, 안전한 예외 처리 적용.
+- **코드 품질 개선**: Ruff/Black 자동화를 통해 936개 이슈 해결.
+- **품질 검사 시스템**: 프로젝트 특화 코드 품질 및 보안 스캔 도구 완성.
 
-### 소프트웨어
-- Python 3.9+
-- PlatformIO
-- Git
+### v4.2.0 (2025-08-13)
+- **Docker 컨테이너화**: 멀티 스테이지 빌드로 운영/개발 환경 분리 및 35MB 이미지 최적화.
+- **의존성 최적화**: 운영용 패키지를 12개에서 7개로 42% 감소.
 
-## 🤝 기여하기
+### v4.1.0 (2025-08-13)
+- **지능형 분석 시스템**: 이동평균 및 Z-score/IQR 이상치 탐지 기능 구현.
+- **시스템 안정화**: FastAPI 최신 표준 적용 및 주요 버그 해결.
 
-1. Fork the Project
-2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the Branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+*상세한 릴리즈 내역은 `docs/release.md` 파일을 참고하세요.*
 
 ## 📝 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 `LICENSE` 파일을 참조하세요.
-
-## 📞 지원
-
-문제가 발생하거나 질문이 있으시면 다음을 확인해주세요:
-
-1. **빠른 진단**: `python tools/quick_test.py`
-2. **로그 확인**: `logs/` 디렉토리의 최신 로그 파일
-3. **문서**: `docs/` 디렉토리의 상세 문서
-4. **이슈 등록**: GitHub Issues
-
-## 🔄 업데이트 로그
-
-### v0.1.0 (2025-08-12)
-- 초기 프로젝트 설정
-- uv 기반 개발 환경 구축
-- 기본 도구 체인 구성
-- Arduino 및 Python 통합 환경
