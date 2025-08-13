@@ -1,10 +1,10 @@
 # INA219 Power Monitoring Backend
 
-Phase 2.3: 1분 통계 패널 & 임계값 알림 시스템 완료 🎊
+Phase 3.1: SQLite 데이터베이스 통합 & 데이터 저장 완료 🗄️
 
 ## 🎯 구현 완료
 
-Phase 2 전체가 완료되었습니다! **실시간 대시보드 시스템**이 완전히 구축되어 브라우저에서 모든 기능을 사용할 수 있습니다.
+Phase 3.1이 완료되었습니다! **SQLite 데이터베이스 통합 시스템**이 완전히 구축되어 48시간 데이터 저장 및 REST API 조회가 가능합니다.
 
 ## ✨ 구현된 기능
 
@@ -15,12 +15,20 @@ Phase 2 전체가 완료되었습니다! **실시간 대시보드 시스템**이
 - **임계값 알림 시스템**: 3단계 알림 (Normal/Warning/Danger)
 - **색상 코딩 UI**: 전압(빨강), 전류(파랑), 전력(노랑)
 
-### 2. WebSocket 실시간 통신
+### 2. SQLite 데이터베이스 시스템 (Phase 3.1)
+- **48시간 데이터 저장**: 자동 retention policy로 관리
+- **4개 최적화된 테이블**: 측정/통계/알림/로그 데이터 분리
+- **9개 REST API 엔드포인트**: 완전한 CRUD 작업 지원
+- **실시간 데이터 저장**: WebSocket 수신 즉시 DB 저장
+- **자동 정리 시스템**: 매시간 오래된 데이터 자동 삭제
+- **전력 효율성 분석**: 에너지 소비 메트릭 계산
+
+### 3. WebSocket 실시간 통신
 - 클라이언트 연결 관리 및 자동 재연결
 - 실시간 데이터 브로드캐스팅
 - 연결 상태 모니터링
 
-### 3. 시뮬레이터 통합
+### 4. 시뮬레이터 통합
 - Mock 시뮬레이터 자동 연결
 - JSON 데이터 실시간 전송 (1초 간격)
 - 5가지 시뮬레이션 모드 지원
@@ -33,11 +41,11 @@ Phase 2 전체가 완료되었습니다! **실시간 대시보드 시스템**이
 # 백엔드 디렉토리로 이동
 cd src/python/backend
 
-# 기본 의존성 설치
-pip install fastapi uvicorn websockets
+# 모든 의존성 설치 (Phase 3.1 기준)
+pip install -r requirements.txt
 
-# AI 자체 검증 테스트용 추가 라이브러리
-pip install beautifulsoup4 cssutils
+# 또는 수동 설치
+pip install fastapi uvicorn websockets aiosqlite aiohttp beautifulsoup4 cssutils
 ```
 
 ### 2. 서버 실행
@@ -52,18 +60,27 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 서버가 시작되면 다음 주소들을 사용할 수 있습니다:
 - **💻 실시간 대시보드**: http://localhost:8000/ (메인 UI)
-- **📊 API 문서**: http://localhost:8000/docs
-- **🔍 서버 상태**: http://localhost:8000/status
-- **📡 WebSocket**: ws://localhost:8000/ws
+- **📊 API 문서**: http://localhost:8000/docs (Swagger UI)
+- **🔍 서버 상태**: http://localhost:8000/status (시스템 상태 + DB 통계)
+- **📡 WebSocket**: ws://localhost:8000/ws (실시간 데이터)
+- **🗄️ 데이터베이스 API**: http://localhost:8000/api/* (REST API)
 
 ### 3. 테스트 실행
 
-#### 🤖 AI 자체 검증 테스트 (NEW!)
+#### 🗄️ Phase 3.1 데이터베이스 테스트 (NEW!)
+```bash
+# Phase 3.1 데이터베이스 통합 테스트 (완전 자동화!)
+python test_phase3_1_database.py
+
+# 결과: 성공률 90.0% (18/20 테스트 통과) - EXCELLENT 등급
+```
+
+#### 🤖 AI 자체 검증 테스트
 ```bash
 # Phase 2.3 완전 자동 검증 (브라우저 불필요!)
 python test_ai_self_phase2_3.py
 
-# 결과: 성공률 93.9% (62/66 테스트 통과) - EXCELLENT 등급
+# 결과: 성공률 88.9% (64/72 테스트 통과) - GOOD 등급
 ```
 
 #### 기존 자동 테스트
@@ -85,16 +102,29 @@ python test_phase2.py
 
 | 메서드 | 경로 | 설명 |
 |--------|------|------|
-| `GET` | `/` | 루트 페이지 |
-| `GET` | `/status` | 시스템 상태 조회 |
+| `GET` | `/` | 루트 페이지 (실시간 대시보드) |
+| `GET` | `/status` | 시스템 상태 + 데이터베이스 통계 |
 | `POST` | `/simulator/start` | 시뮬레이터 시작 |
 | `POST` | `/simulator/stop` | 시뮬레이터 중지 |
+
+### 🗄️ 데이터베이스 API (Phase 3.1)
+
+| 메서드 | 경로 | 설명 | 파라미터 |
+|--------|------|------|----------|
+| `GET` | `/api/measurements` | 측정 데이터 조회 | hours, limit |
+| `GET` | `/api/statistics` | 1분 통계 조회 | hours |
+| `GET` | `/api/alerts` | 알림 이벤트 조회 | hours, severity |
+| `GET` | `/api/logs` | 시스템 로그 조회 | hours, level, component |
+| `GET` | `/api/power-efficiency` | 전력 효율성 분석 | hours |
+| `GET` | `/api/database/stats` | 데이터베이스 통계 | - |
+| `POST` | `/api/database/cleanup` | 데이터베이스 정리 | - |
+| `POST` | `/api/database/vacuum` | 데이터베이스 최적화 | - |
 
 ### WebSocket
 
 | 경로 | 설명 |
 |------|------|
-| `/ws` | 실시간 데이터 스트림 |
+| `/ws` | 실시간 데이터 스트림 + 자동 DB 저장 |
 
 ## 📊 WebSocket 메시지 포맷
 

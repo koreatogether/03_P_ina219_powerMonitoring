@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 INA219 Power Monitoring System - FastAPI Backend
-Phase 2.3: 1-Minute Statistics & Threshold Alerts
+Phase 3.1: SQLite Database Integration & Data Storage
 
 기능:
 - FastAPI 기본 서버
@@ -11,6 +11,9 @@ Phase 2.3: 1-Minute Statistics & Threshold Alerts
 - 실시간 데이터 브로드캐스팅
 - 1분 통계 패널
 - 임계값 알림 시스템
+- SQLite 데이터베이스 48시간 저장
+- 히스토리 데이터 조회 API
+- 자동 데이터 정리 시스템
 """
 
 import os
@@ -28,12 +31,15 @@ import json
 import sys
 import os
 from typing import List
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import uvicorn
+
+# 데이터베이스 모듈 임포트
+from database import DatabaseManager, auto_cleanup_task
 
 # 시뮬레이터 패키지 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -87,12 +93,21 @@ class PowerMonitoringServer:
     def __init__(self):
         self.app = FastAPI(
             title="INA219 Power Monitoring System",
-            description="Real-time power monitoring with WebSocket",
-            version="1.0.0"
+            description="Real-time power monitoring with WebSocket & Database",
+            version="3.1.0"
         )
         self.manager = ConnectionManager()
         self.simulator = None
         self.is_running = False
+        self.db = DatabaseManager.get_instance()
+        
+        # 1분 통계 버퍼
+        self.minute_buffer = {
+            'voltage': [],
+            'current': [],
+            'power': [],
+            'start_time': None
+        }
         
         # 라우트 설정
         self.setup_routes()
@@ -917,10 +932,12 @@ class PowerMonitoringServer:
         @self.app.get("/status")
         async def status():
             """시스템 상태"""
+            db_stats = await self.db.get_database_stats()
             return {
                 "server": "running",
                 "simulator": "connected" if self.simulator and self.simulator.is_connected() else "disconnected",
                 "websocket_connections": len(self.manager.active_connections),
+                "database": db_stats,
                 "timestamp": datetime.now().isoformat()
             }
         
@@ -965,6 +982,116 @@ class PowerMonitoringServer:
                 self.simulator = None
                 return {"status": "stopped"}
             return {"status": "not_running"}
+        
+        # 새로운 데이터베이스 API 엔드포인트들
+        @self.app.get("/api/measurements")
+        async def get_measurements(hours: int = 24, limit: int = 1000):
+            """측정 데이터 조회"""
+            try:
+                measurements = await self.db.get_recent_measurements(hours=hours, limit=limit)
+                return {
+                    "data": measurements,
+                    "count": len(measurements),
+                    "hours": hours,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/statistics")
+        async def get_statistics(hours: int = 24):
+            """1분 통계 데이터 조회"""
+            try:
+                statistics = await self.db.get_minute_statistics(hours=hours)
+                return {
+                    "data": statistics,
+                    "count": len(statistics),
+                    "hours": hours,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/alerts")
+        async def get_alerts(hours: int = 24, severity: str = None):
+            """알림 이벤트 조회"""
+            try:
+                alerts = await self.db.get_alert_events(hours=hours, severity=severity)
+                return {
+                    "data": alerts,
+                    "count": len(alerts),
+                    "hours": hours,
+                    "severity_filter": severity,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/logs")
+        async def get_logs(hours: int = 24, level: str = None, component: str = None):
+            """시스템 로그 조회"""
+            try:
+                logs = await self.db.get_system_logs(hours=hours, level=level, component=component)
+                return {
+                    "data": logs,
+                    "count": len(logs),
+                    "hours": hours,
+                    "level_filter": level,
+                    "component_filter": component,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/power-efficiency")
+        async def get_power_efficiency(hours: int = 24):
+            """전력 효율성 분석"""
+            try:
+                efficiency = await self.db.calculate_power_efficiency(hours=hours)
+                return {
+                    "data": efficiency,
+                    "hours": hours,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.post("/api/database/cleanup")
+        async def cleanup_database():
+            """데이터베이스 정리"""
+            try:
+                cleanup_stats = await self.db.cleanup_old_data()
+                return {
+                    "status": "completed",
+                    "stats": cleanup_stats,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.post("/api/database/vacuum")
+        async def vacuum_database():
+            """데이터베이스 최적화"""
+            try:
+                success = await self.db.vacuum_database()
+                return {
+                    "status": "completed" if success else "failed",
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/database/stats")
+        async def get_database_stats():
+            """데이터베이스 통계"""
+            try:
+                stats = await self.db.get_database_stats()
+                return {
+                    "data": stats,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
     
     async def data_collector(self):
         """시뮬레이터에서 데이터 수집 및 브로드캐스트"""
@@ -983,6 +1110,26 @@ class PowerMonitoringServer:
                             
                             # 측정 데이터인지 확인
                             if 'v' in json_data and 'a' in json_data and 'w' in json_data:
+                                voltage = json_data['v']
+                                current = json_data['a']
+                                power = json_data['w']
+                                
+                                # 데이터베이스에 저장
+                                await self.db.save_measurement(
+                                    voltage=voltage,
+                                    current=current,
+                                    power=power,
+                                    sequence_number=json_data.get('seq'),
+                                    sensor_status=json_data.get('status', 'ok'),
+                                    simulation_mode=json_data.get('mode', 'NORMAL')
+                                )
+                                
+                                # 1분 통계 버퍼 업데이트
+                                await self.update_minute_statistics(voltage, current, power)
+                                
+                                # 임계값 알림 체크
+                                await self.check_and_save_alerts(voltage, current, power)
+                                
                                 # WebSocket으로 브로드캐스트
                                 websocket_message = {
                                     "type": "measurement",
@@ -1013,6 +1160,135 @@ class PowerMonitoringServer:
             await asyncio.sleep(0.1)
         
         print("🛑 Data collector stopped")
+    
+    async def update_minute_statistics(self, voltage: float, current: float, power: float):
+        """1분 통계 버퍼 업데이트"""
+        try:
+            now = datetime.now()
+            
+            # 1분 버퍼 시작 시간 설정
+            if not self.minute_buffer['start_time']:
+                self.minute_buffer['start_time'] = now
+            
+            # 1분이 지났으면 통계 저장하고 버퍼 리셋
+            if (now - self.minute_buffer['start_time']).total_seconds() >= 60:
+                if self.minute_buffer['voltage']:
+                    # 통계 계산
+                    voltage_stats = {
+                        'min': min(self.minute_buffer['voltage']),
+                        'max': max(self.minute_buffer['voltage']),
+                        'avg': sum(self.minute_buffer['voltage']) / len(self.minute_buffer['voltage'])
+                    }
+                    current_stats = {
+                        'min': min(self.minute_buffer['current']),
+                        'max': max(self.minute_buffer['current']),
+                        'avg': sum(self.minute_buffer['current']) / len(self.minute_buffer['current'])
+                    }
+                    power_stats = {
+                        'min': min(self.minute_buffer['power']),
+                        'max': max(self.minute_buffer['power']),
+                        'avg': sum(self.minute_buffer['power']) / len(self.minute_buffer['power'])
+                    }
+                    
+                    # 데이터베이스에 저장
+                    minute_timestamp = self.minute_buffer['start_time'].replace(second=0, microsecond=0)
+                    await self.db.save_minute_statistics(
+                        minute_timestamp=minute_timestamp,
+                        voltage_stats=voltage_stats,
+                        current_stats=current_stats,
+                        power_stats=power_stats,
+                        sample_count=len(self.minute_buffer['voltage'])
+                    )
+                
+                # 버퍼 리셋
+                self.minute_buffer = {
+                    'voltage': [],
+                    'current': [],
+                    'power': [],
+                    'start_time': now
+                }
+            
+            # 현재 데이터를 버퍼에 추가
+            self.minute_buffer['voltage'].append(voltage)
+            self.minute_buffer['current'].append(current)
+            self.minute_buffer['power'].append(power)
+            
+        except Exception as e:
+            print(f"❌ Failed to update minute statistics: {e}")
+    
+    async def check_and_save_alerts(self, voltage: float, current: float, power: float):
+        """임계값 알림 체크 및 저장"""
+        try:
+            # 임계값 설정
+            thresholds = {
+                'voltage': {'min': 4.5, 'max': 5.5, 'warning_range': 0.2},
+                'current': {'max': 0.5, 'warning_range': 0.1},
+                'power': {'max': 2.0, 'warning_range': 0.3}
+            }
+            
+            # 전압 체크
+            if voltage < thresholds['voltage']['min'] or voltage > thresholds['voltage']['max']:
+                await self.db.save_alert_event(
+                    alert_type="threshold_violation",
+                    metric_name="voltage",
+                    metric_value=voltage,
+                    threshold_value=thresholds['voltage']['min'] if voltage < thresholds['voltage']['min'] else thresholds['voltage']['max'],
+                    severity="danger",
+                    message=f"Voltage out of range: {voltage:.3f}V (safe: 4.5V-5.5V)"
+                )
+            elif (voltage < thresholds['voltage']['min'] + thresholds['voltage']['warning_range'] or 
+                  voltage > thresholds['voltage']['max'] - thresholds['voltage']['warning_range']):
+                await self.db.save_alert_event(
+                    alert_type="threshold_warning",
+                    metric_name="voltage",
+                    metric_value=voltage,
+                    threshold_value=thresholds['voltage']['min'] + thresholds['voltage']['warning_range'],
+                    severity="warning",
+                    message=f"Voltage near limit: {voltage:.3f}V (safe: 4.5V-5.5V)"
+                )
+            
+            # 전류 체크
+            if current > thresholds['current']['max']:
+                await self.db.save_alert_event(
+                    alert_type="threshold_violation",
+                    metric_name="current",
+                    metric_value=current,
+                    threshold_value=thresholds['current']['max'],
+                    severity="danger",
+                    message=f"Current overload: {current:.3f}A (max: 0.5A)"
+                )
+            elif current > thresholds['current']['max'] - thresholds['current']['warning_range']:
+                await self.db.save_alert_event(
+                    alert_type="threshold_warning",
+                    metric_name="current",
+                    metric_value=current,
+                    threshold_value=thresholds['current']['max'] - thresholds['current']['warning_range'],
+                    severity="warning",
+                    message=f"Current near limit: {current:.3f}A (max: 0.5A)"
+                )
+            
+            # 전력 체크
+            if power > thresholds['power']['max']:
+                await self.db.save_alert_event(
+                    alert_type="threshold_violation",
+                    metric_name="power",
+                    metric_value=power,
+                    threshold_value=thresholds['power']['max'],
+                    severity="danger",
+                    message=f"Power overload: {power:.3f}W (max: 2.0W)"
+                )
+            elif power > thresholds['power']['max'] - thresholds['power']['warning_range']:
+                await self.db.save_alert_event(
+                    alert_type="threshold_warning",
+                    metric_name="power",
+                    metric_value=power,
+                    threshold_value=thresholds['power']['max'] - thresholds['power']['warning_range'],
+                    severity="warning",
+                    message=f"Power near limit: {power:.3f}W (max: 2.0W)"
+                )
+                
+        except Exception as e:
+            print(f"❌ Failed to check alerts: {e}")
     
     async def start_data_collection(self):
         """데이터 수집 시작"""
@@ -1049,24 +1325,45 @@ async def startup_event():
     print("🚀 INA219 Power Monitoring Server Starting...")
     print("📡 WebSocket endpoint: ws://localhost:8000/ws")
     print("🌐 API docs: http://localhost:8000/docs")
+    print("🗄️ Database: SQLite with 48-hour retention")
+    
+    # 데이터베이스 시스템 로그 저장
+    await server.db.save_system_log(
+        level="INFO",
+        component="server",
+        message="Server startup initiated",
+        details={"version": "3.1.0", "phase": "Phase 3.1 - Database Integration"}
+    )
     
     # 데이터 수집 시작
     await server.start_data_collection()
+    
+    # 자동 정리 태스크 시작
+    asyncio.create_task(auto_cleanup_task())
+    print("🔄 Auto cleanup task started")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """서버 종료 시 이벤트"""
     print("🛑 INA219 Power Monitoring Server Shutting down...")
+    
+    # 종료 로그 저장
+    await server.db.save_system_log(
+        level="INFO",
+        component="server",
+        message="Server shutdown initiated"
+    )
+    
     await server.stop_data_collection()
 
 
 def main():
     """메인 함수"""
-    print("=" * 50)
+    print("=" * 60)
     print("🔋 INA219 Power Monitoring System")
-    print("📊 Phase 2.3: 1-Minute Statistics & Threshold Alerts")
-    print("=" * 50)
+    print("🗄️ Phase 3.1: SQLite Database Integration & Data Storage")
+    print("=" * 60)
     
     # 서버 실행
     uvicorn.run(
