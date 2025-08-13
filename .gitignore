@@ -1,5 +1,138 @@
-.pio
+# =============================================================================
+# INA219 전력 모니터링 시스템 - .gitignore
+# 공개 저장소용 설정 (v2025.08.13)
+# =============================================================================
+
+# ==================== 개발 환경 및 빌드 파일 ====================
+
+# PlatformIO 빌드 시스템
+.pio/
+*.pio
+
+# Python 가상환경
+.venv/
+venv/
+.env
+.python-version
+
+# Python 캐시 및 컴파일 파일
+__pycache__/
+*.py[cod]
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Python 도구 캐시
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==================== IDE 및 에디터 설정 ====================
+
+# VS Code
+.vscode/
 .vscode/.browse.c_cpp.db*
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+.vscode/settings.json
+
+# IntelliJ/PyCharm
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# Claude AI 설정
+.claude/
+
+# ==================== 런타임 데이터 및 로그 ====================
+
+# 데이터 디렉토리
+data/
+logs/
+*.db
+*.sqlite
+*.sqlite3
+
+# 로그 파일
+*.log
+*.log.*
+
+# ==================== 임시 및 백업 파일 ====================
+
+# 시스템 임시 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 백업 파일
+*_backup.*
+*.bak
+*.tmp
+*.swp
+*.swo
+*~
+
+# ==================== 테스트 및 개발 파일 ====================
+
+# 개발용 HTML 테스트 파일
+test_*.html
+*_test.html
+
+# 벤치마크 및 프로파일링 (선택적 제외)
+benchmarks/
+profiling/
+
+# 개발 도구 (선택적 제외)
+tools/gitCheck/
+tools/performance_analyzer.py
+tools/code_quality_checker.py
+
+# ==================== 민감한 정보 및 설정 ====================
+
+# 환경 변수 및 설정 파일
+.env
+.env.local
+.env.production
+config.json
+settings.json
+
+# 인증서 및 키 파일
+*.key
+*.pem
+*.crt
+*.p12
+
+# ==================== Docker 및 배포 ====================
+
+# Docker 볼륨 데이터
+docker_data/
+
+# ==================== Node.js 관련 (향후 확장용) ====================
+
+# Node modules (향후 프론트엔드 추가 시)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==================== OS별 파일 ====================
+
+# Windows
+*.lnk
+desktop.ini
+
+# macOS
+.AppleDouble
+.LSOverride
+
+# Linux
+.directory

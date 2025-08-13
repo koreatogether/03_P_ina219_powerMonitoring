@@ -1,0 +1,81 @@
+# INA219 Power Monitoring System - Docker Ignore
+# Phase 4.1: Docker 최적화를 위한 제외 파일 목록
+
+# Git 관련
+.git
+.gitignore
+.gitattributes
+
+# Python 캐시
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# 가상환경
+venv/
+env/
+ENV/
+
+# IDE 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 로그 파일
+*.log
+logs/
+
+# 데이터베이스 파일 (개발용)
+*.db
+*.sqlite
+*.sqlite3
+
+# 테스트 관련
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# 문서 (운영에 불필요)
+docs/
+*.md
+README*
+
+# 테스트 파일
+test_*.py
+*_test.py
+tests/
+
+# 개발용 설정
+requirements-dev.txt
+.env.dev
+.env.local
+
+# OS 관련
+.DS_Store
+Thumbs.db
+
+# 임시 파일
+*.tmp
+*.temp
+temp/
+tmp/

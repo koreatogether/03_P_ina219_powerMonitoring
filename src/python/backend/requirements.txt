@@ -1,7 +1,7 @@
-# INA219 Power Monitoring System - Backend Dependencies
-# Phase 3.1: SQLite Database Integration & Data Storage
+# INA219 Power Monitoring System - Production Dependencies
+# Phase 4.1: Intelligent Data Analysis System
 
-# FastAPI and WebSocket
+# Core Web Framework
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 websockets==12.0
@@ -9,20 +9,11 @@ websockets==12.0
 # Database
 aiosqlite==0.19.0
 
-# Serial Communication (for real Arduino)
+# Data Analysis (Phase 4.1)
+numpy>=1.24.0
+
+# Serial Communication
 pyserial==3.5
 
-# JSON and Data Processing
+# Data Validation
 pydantic==2.5.0
-
-# HTTP Client (for testing)
-aiohttp==3.9.1
-
-# HTML/CSS Parsing (for AI testing)
-beautifulsoup4==4.12.2
-cssutils==2.10.1
-
-# Development and Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-httpx==0.25.2

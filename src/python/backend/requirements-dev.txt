@@ -1,0 +1,22 @@
+# INA219 Power Monitoring System - Development Dependencies
+# Phase 4.1: Development and Testing Tools
+
+# Include all production dependencies
+-r requirements.txt
+
+# HTTP Clients (for testing)
+aiohttp==3.9.1
+httpx==0.25.2
+
+# HTML/CSS Parsing (for AI testing)
+beautifulsoup4==4.12.2
+cssutils==2.10.1
+
+# Testing Framework
+pytest==7.4.3
+pytest-asyncio==0.21.1
+
+# Development Tools
+black>=23.0.0           # Code formatting
+flake8>=6.0.0          # Code linting
+mypy>=1.0.0            # Type checking

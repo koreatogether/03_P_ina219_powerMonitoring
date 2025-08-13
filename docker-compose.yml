@@ -1,0 +1,45 @@
+# INA219 Power Monitoring System - Docker Compose
+# Phase 4.1: Intelligent Data Analysis System
+
+version: '3.8'
+
+services:
+  # 운영용 서비스
+  ina219-monitor:
+    build:
+      context: .
+      target: base
+    container_name: ina219-power-monitor
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - PYTHONIOENCODING=utf-8
+      - TZ=Asia/Seoul
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 개발용 서비스
+  ina219-dev:
+    build:
+      context: .
+      target: development
+    container_name: ina219-power-monitor-dev
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./src:/app
+      - ./data:/app/data
+      - ./logs:/app/logs
+    environment:
+      - PYTHONIOENCODING=utf-8
+      - TZ=Asia/Seoul
+    profiles:
+      - dev
