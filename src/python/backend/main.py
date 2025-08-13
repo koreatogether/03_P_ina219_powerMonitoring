@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 INA219 Power Monitoring System - FastAPI Backend
-Phase 3.1: SQLite Database Integration & Data Storage
+Phase 4.1: Advanced Data Analysis & Outlier Detection
 
 기능:
 - FastAPI 기본 서버
@@ -14,6 +14,9 @@ Phase 3.1: SQLite Database Integration & Data Storage
 - SQLite 데이터베이스 48시간 저장
 - 히스토리 데이터 조회 API
 - 자동 데이터 정리 시스템
+- 이동평균 계산 (1분, 5분, 15분)
+- 이상치 탐지 (Z-score, IQR 방법)
+- 실시간 데이터 분석 및 알림
 """
 
 import os
@@ -28,6 +31,7 @@ if sys.platform.startswith('win'):
 
 import asyncio
 import json
+import sqlite3
 import sys
 import os
 from typing import List
@@ -40,6 +44,9 @@ import uvicorn
 
 # 데이터베이스 모듈 임포트
 from database import DatabaseManager, auto_cleanup_task
+
+# 데이터 분석 모듈 임포트
+from data_analyzer import DataAnalyzer
 
 # 시뮬레이터 패키지 경로 추가
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -100,6 +107,9 @@ class PowerMonitoringServer:
         self.simulator = None
         self.is_running = False
         self.db = DatabaseManager.get_instance()
+        
+        # 데이터 분석기 초기화
+        self.data_analyzer = DataAnalyzer(self.db.db_path)
         
         # 1분 통계 버퍼
         self.minute_buffer = {
@@ -396,6 +406,129 @@ class PowerMonitoringServer:
             border-radius: 5px;
         }
         
+        /* 데이터 분석 패널 스타일 */
+        .analysis-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 15px;
+        }
+        
+        .analysis-section {
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid #dee2e6;
+        }
+        
+        .analysis-section h4 {
+            margin: 0 0 10px 0;
+            color: #495057;
+            font-size: 14px;
+        }
+        
+        .moving-avg-display {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .avg-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 0;
+        }
+        
+        .avg-label {
+            font-size: 14px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .avg-values {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #495057;
+            font-weight: bold;
+        }
+        
+        .outlier-display {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .outlier-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .outlier-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+        }
+        
+        .outlier-label {
+            font-size: 14px;
+            color: #6c757d;
+            font-weight: 500;
+        }
+        
+        .outlier-value {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            color: #495057;
+            font-weight: bold;
+        }
+        
+        .outlier-alerts {
+            background-color: white;
+            border-radius: 5px;
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            min-height: 40px;
+            max-height: 80px;
+            overflow-y: auto;
+        }
+        
+        .no-outliers {
+            color: #28a745;
+            font-size: 11px;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        .outlier-alert {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 3px;
+            padding: 4px 6px;
+            margin-bottom: 3px;
+            font-size: 10px;
+        }
+        
+        .outlier-alert.severe {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        
+        .outlier-alert.moderate {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+            color: #856404;
+        }
+        
+        .outlier-alert.mild {
+            background-color: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        
         /* 히스토리 그래프 스타일 */
         .history-controls {
             display: flex;
@@ -677,6 +810,53 @@ class PowerMonitoringServer:
     </div>
     
     <div class="panel">
+        <h3>🔍 Data Analysis</h3>
+        
+        <div class="analysis-grid">
+            <div class="analysis-section">
+                <h4>📈 Moving Averages</h4>
+                <div class="moving-avg-display">
+                    <div class="avg-metric">
+                        <span class="avg-label">Voltage (1m/5m/15m):</span>
+                        <span class="avg-values" id="voltageAvg">--/--/--</span>
+                    </div>
+                    <div class="avg-metric">
+                        <span class="avg-label">Current (1m/5m/15m):</span>
+                        <span class="avg-values" id="currentAvg">--/--/--</span>
+                    </div>
+                    <div class="avg-metric">
+                        <span class="avg-label">Power (1m/5m/15m):</span>
+                        <span class="avg-values" id="powerAvg">--/--/--</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="analysis-section">
+                <h4>🚨 Outlier Detection</h4>
+                <div class="outlier-display">
+                    <div class="outlier-stats">
+                        <div class="outlier-stat">
+                            <span class="outlier-label">Total Outliers:</span>
+                            <span class="outlier-value" id="totalOutliers">0</span>
+                        </div>
+                        <div class="outlier-stat">
+                            <span class="outlier-label">Outlier Rate:</span>
+                            <span class="outlier-value" id="outlierRate">0.0%</span>
+                        </div>
+                        <div class="outlier-stat">
+                            <span class="outlier-label">Confidence:</span>
+                            <span class="outlier-value" id="analysisConfidence">0%</span>
+                        </div>
+                    </div>
+                    <div class="outlier-alerts" id="outlierAlerts">
+                        <div class="no-outliers">No outliers detected</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="panel">
         <h3>📋 Message Log</h3>
         <div class="log" id="messageLog"></div>
     </div>
@@ -861,6 +1041,11 @@ class PowerMonitoringServer:
                         // 통계 데이터 업데이트
                         updateStatistics(measurement.v, measurement.a, measurement.w);
                         
+                        // 분석 데이터 업데이트
+                        if (data.analysis) {
+                            updateAnalysisDisplay(data.analysis);
+                        }
+                        
                         document.getElementById('lastData').innerHTML = 
                             `V=${measurement.v}V, A=${measurement.a}A, W=${measurement.w}W<br>` +
                             `Seq=${measurement.seq}, Mode=${measurement.mode}, Status=${measurement.status}`;
@@ -868,6 +1053,11 @@ class PowerMonitoringServer:
                         // 파워 계산 검증
                         const calculatedPower = (measurement.v * measurement.a).toFixed(3);
                         log(`📊 Data: V=${measurement.v.toFixed(3)}V A=${measurement.a.toFixed(3)}A W=${measurement.w.toFixed(3)}W (calc: ${calculatedPower}W)`, 'info');
+                        
+                        // 이상치 알림
+                        if (data.analysis && data.analysis.has_outlier) {
+                            log(`🚨 Outlier detected! Count: ${data.analysis.outlier_count}`, 'error');
+                        }
                     } else if (data.type === 'status') {
                         log(`📢 Status: ${data.message}`, 'info');
                     } else {
@@ -913,6 +1103,65 @@ class PowerMonitoringServer:
                 log('📈 Chart cleared', 'info');
             }
         }
+        
+        // 분석 데이터 업데이트 함수
+        function updateAnalysisDisplay(analysis) {
+            // 이동평균 업데이트
+            if (analysis.moving_averages) {
+                const voltageAvg = analysis.moving_averages.voltage;
+                const currentAvg = analysis.moving_averages.current;
+                const powerAvg = analysis.moving_averages.power;
+                
+                document.getElementById('voltageAvg').textContent = 
+                    `${voltageAvg['1m']?.toFixed(3) || '--'}/${voltageAvg['5m']?.toFixed(3) || '--'}/${voltageAvg['15m']?.toFixed(3) || '--'}`;
+                
+                document.getElementById('currentAvg').textContent = 
+                    `${currentAvg['1m']?.toFixed(3) || '--'}/${currentAvg['5m']?.toFixed(3) || '--'}/${currentAvg['15m']?.toFixed(3) || '--'}`;
+                
+                document.getElementById('powerAvg').textContent = 
+                    `${powerAvg['1m']?.toFixed(3) || '--'}/${powerAvg['5m']?.toFixed(3) || '--'}/${powerAvg['15m']?.toFixed(3) || '--'}`;
+            }
+            
+            // 이상치 통계 업데이트
+            document.getElementById('totalOutliers').textContent = analysis.outlier_count || 0;
+            document.getElementById('analysisConfidence').textContent = 
+                `${Math.round((analysis.confidence || 0) * 100)}%`;
+            
+            // 이상치 알림 업데이트
+            const alertsContainer = document.getElementById('outlierAlerts');
+            
+            if (analysis.has_outlier && Object.keys(analysis.outliers).length > 0) {
+                alertsContainer.innerHTML = '';
+                
+                for (const [metric, outlier] of Object.entries(analysis.outliers)) {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = `outlier-alert ${outlier.severity}`;
+                    alertDiv.innerHTML = 
+                        `<strong>${metric.toUpperCase()}</strong>: ${outlier.method} score ${outlier.score.toFixed(2)} (${outlier.severity})`;
+                    alertsContainer.appendChild(alertDiv);
+                }
+            } else if (!analysis.has_outlier) {
+                alertsContainer.innerHTML = '<div class="no-outliers">No outliers detected</div>';
+            }
+        }
+        
+        // 이상치 요약 통계 로드
+        async function loadOutlierSummary() {
+            try {
+                const response = await fetch('/api/analysis/outliers/summary');
+                const result = await response.json();
+                
+                if (result.data && result.data.overall) {
+                    document.getElementById('outlierRate').textContent = 
+                        `${result.data.overall.overall_outlier_rate}%`;
+                }
+            } catch (error) {
+                console.error('Failed to load outlier summary:', error);
+            }
+        }
+        
+        // 주기적으로 이상치 요약 업데이트
+        setInterval(loadOutlierSummary, 10000); // 10초마다
         
         function clearLog() {
             document.getElementById('messageLog').innerHTML = '';
@@ -1825,6 +2074,115 @@ class PowerMonitoringServer:
                 }
             except Exception as e:
                 raise HTTPException(status_code=500, detail=str(e))
+        
+        # === 데이터 분석 API ===
+        
+        @self.app.get("/api/analysis/outliers/summary")
+        async def get_outlier_summary():
+            """이상치 요약 통계"""
+            try:
+                summary = self.data_analyzer.get_outlier_summary()
+                return {
+                    "data": summary,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/analysis/outliers/recent")
+        async def get_recent_outliers(limit: int = 10):
+            """최근 이상치 목록"""
+            try:
+                outliers = self.data_analyzer.get_recent_outliers(limit)
+                return {
+                    "data": outliers,
+                    "count": len(outliers),
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/analysis/moving-averages")
+        async def get_moving_averages():
+            """현재 이동평균 값"""
+            try:
+                averages = self.data_analyzer.moving_avg_calc.get_all_moving_averages()
+                return {
+                    "data": averages,
+                    "timestamp": datetime.now().isoformat()
+                }
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
+        
+        @self.app.get("/api/analysis/history")
+        async def get_analysis_history(
+            hours: int = 1,
+            metric: str = None,
+            outliers_only: bool = False
+        ):
+            """분석 결과 히스토리"""
+            try:
+                conn = sqlite3.connect(self.db.db_path)
+                cursor = conn.cursor()
+                
+                # 쿼리 구성
+                where_conditions = ["timestamp >= datetime('now', '-{} hours')".format(hours)]
+                params = []
+                
+                if metric:
+                    where_conditions.append("metric = ?")
+                    params.append(metric)
+                
+                if outliers_only:
+                    where_conditions.append("is_outlier = 1")
+                
+                where_clause = " AND ".join(where_conditions)
+                
+                query = f"""
+                    SELECT timestamp, metric, value, moving_avg_1m, moving_avg_5m, moving_avg_15m,
+                           is_outlier, outlier_score, outlier_method, severity, confidence
+                    FROM analysis_results
+                    WHERE {where_clause}
+                    ORDER BY timestamp DESC
+                    LIMIT 1000
+                """
+                
+                cursor.execute(query, params)
+                rows = cursor.fetchall()
+                conn.close()
+                
+                # 결과 포맷팅
+                results = []
+                for row in rows:
+                    results.append({
+                        'timestamp': row[0],
+                        'metric': row[1],
+                        'value': row[2],
+                        'moving_averages': {
+                            '1m': row[3],
+                            '5m': row[4],
+                            '15m': row[5]
+                        },
+                        'is_outlier': bool(row[6]),
+                        'outlier_score': row[7],
+                        'outlier_method': row[8],
+                        'severity': row[9],
+                        'confidence': row[10]
+                    })
+                
+                return {
+                    "data": results,
+                    "count": len(results),
+                    "filters": {
+                        "hours": hours,
+                        "metric": metric,
+                        "outliers_only": outliers_only
+                    },
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=str(e))
     
     async def data_collector(self):
         """시뮬레이터에서 데이터 수집 및 브로드캐스트"""
@@ -1863,10 +2221,35 @@ class PowerMonitoringServer:
                                 # 임계값 알림 체크
                                 await self.check_and_save_alerts(voltage, current, power)
                                 
-                                # WebSocket으로 브로드캐스트
+                                # 데이터 분석 수행
+                                analysis_result = self.data_analyzer.analyze_data_point(voltage, current, power)
+                                
+                                # 분석 결과를 데이터베이스에 저장
+                                self.data_analyzer.save_analysis_to_db(analysis_result)
+                                
+                                # WebSocket으로 브로드캐스트 (분석 결과 포함)
                                 websocket_message = {
                                     "type": "measurement",
                                     "data": json_data,
+                                    "analysis": {
+                                        "has_outlier": analysis_result['has_any_outlier'],
+                                        "outlier_count": analysis_result['outlier_count'],
+                                        "confidence": analysis_result['confidence'],
+                                        "moving_averages": {
+                                            metric: data['moving_avg'] 
+                                            for metric, data in analysis_result['metrics'].items()
+                                        },
+                                        "outliers": {
+                                            metric: {
+                                                'is_outlier': data['outlier']['is_outlier'],
+                                                'score': data['outlier']['score'],
+                                                'severity': data['outlier']['severity'],
+                                                'method': data['outlier']['method']
+                                            }
+                                            for metric, data in analysis_result['metrics'].items()
+                                            if data['outlier']['is_outlier']
+                                        }
+                                    },
                                     "timestamp": datetime.now().isoformat()
                                 }
                                 
