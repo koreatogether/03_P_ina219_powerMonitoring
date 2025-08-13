@@ -22,12 +22,32 @@ Phase 4.1: Advanced Data Analysis & Outlier Detection
 import os
 import sys
 
-# UTF-8 인코딩 강제 설정 (Windows 호환)
+# UTF-8 인코딩 강제 설정 (Windows 호환) - 멀티프로세싱 안전 버전
 if sys.platform.startswith('win'):
     import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
+    import logging
+    
+    # 안전한 UTF-8 설정
+    try:
+        if hasattr(sys.stdout, 'detach'):
+            sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
+        if hasattr(sys.stderr, 'detach'):
+            sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
+    except (ValueError, AttributeError):
+        # 이미 분리된 스트림이거나 지원하지 않는 경우 무시
+        pass
+    
     os.environ['PYTHONIOENCODING'] = 'utf-8'
+    
+    # 로깅 설정 - 멀티프로세싱 안전
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler('server.log', encoding='utf-8')
+        ]
+    )
 
 import asyncio
 import json
@@ -40,6 +60,7 @@ from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
+from contextlib import asynccontextmanager
 import uvicorn
 
 # 데이터베이스 모듈 임포트
@@ -86,7 +107,9 @@ class ConnectionManager:
             try:
                 await connection.send_text(message)
             except Exception as e:
-                print(f"❌ Failed to send message to client: {e}")
+                # 정상적인 연결 종료는 에러로 표시하지 않음
+                if "already completed" not in str(e) and "websocket.close" not in str(e):
+                    print(f"❌ Failed to send message to client: {e}")
                 disconnected.append(connection)
         
         # 연결이 끊어진 클라이언트 제거
@@ -98,11 +121,8 @@ class PowerMonitoringServer:
     """전력 모니터링 서버"""
     
     def __init__(self):
-        self.app = FastAPI(
-            title="INA219 Power Monitoring System",
-            description="Real-time power monitoring with WebSocket & Database",
-            version="3.1.0"
-        )
+        # FastAPI 앱은 나중에 설정됨
+        self.app = None
         self.manager = ConnectionManager()
         self.simulator = None
         self.is_running = False
@@ -119,8 +139,7 @@ class PowerMonitoringServer:
             'start_time': None
         }
         
-        # 라우트 설정
-        self.setup_routes()
+        # 라우트 설정은 앱이 설정된 후에 호출됨
     
     def setup_routes(self):
         """API 라우트 설정"""
@@ -1936,7 +1955,9 @@ class PowerMonitoringServer:
                     except asyncio.TimeoutError:
                         pass  # 타임아웃은 정상 (keep-alive)
                     except Exception as e:
-                        print(f"❌ WebSocket receive error: {e}")
+                        # 정상적인 연결 종료는 에러로 표시하지 않음
+                        if "1012" not in str(e) and "1000" not in str(e):
+                            print(f"❌ WebSocket receive error: {e}")
                         break
             except WebSocketDisconnect:
                 self.manager.disconnect(websocket)
@@ -2430,14 +2451,14 @@ class PowerMonitoringServer:
             self.simulator = None
 
 
-# 전역 서버 인스턴스
+# 전역 서버 인스턴스 (먼저 생성)
 server = PowerMonitoringServer()
-app = server.app
 
-
-@app.on_event("startup")
-async def startup_event():
-    """서버 시작 시 이벤트"""
+# Lifespan 이벤트 핸들러
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """FastAPI 애플리케이션 라이프사이클 관리"""
+    # 시작 이벤트
     print("🚀 INA219 Power Monitoring Server Starting...")
     print("📡 WebSocket endpoint: ws://localhost:8000/ws")
     print("🌐 API docs: http://localhost:8000/docs")
@@ -2448,7 +2469,7 @@ async def startup_event():
         level="INFO",
         component="server",
         message="Server startup initiated",
-        details={"version": "3.1.0", "phase": "Phase 3.1 - Database Integration"}
+        details={"version": "4.1.0", "phase": "Phase 4.1 - Advanced Data Analysis"}
     )
     
     # 데이터 수집 시작
@@ -2457,38 +2478,61 @@ async def startup_event():
     # 자동 정리 태스크 시작
     asyncio.create_task(auto_cleanup_task())
     print("🔄 Auto cleanup task started")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """서버 종료 시 이벤트"""
+    
+    yield  # 서버 실행 중
+    
+    # 종료 이벤트
     print("🛑 INA219 Power Monitoring Server Shutting down...")
     
     # 종료 로그 저장
-    await server.db.save_system_log(
-        level="INFO",
-        component="server",
-        message="Server shutdown initiated"
-    )
+    try:
+        await server.db.save_system_log(
+            level="INFO",
+            component="server",
+            message="Server shutdown initiated"
+        )
+    except Exception as e:
+        print(f"⚠️ Error saving shutdown log: {e}")
     
     await server.stop_data_collection()
+
+
+# FastAPI 앱 생성 (lifespan 포함)
+app = FastAPI(
+    title="INA219 Power Monitoring System",
+    description="Real-time power monitoring with WebSocket & Database & Advanced Analysis",
+    version="4.1.0",
+    lifespan=lifespan
+)
+
+# 서버 인스턴스에 앱 연결
+server.app = app
+server.setup_routes()
 
 
 def main():
     """메인 함수"""
     print("=" * 60)
     print("🔋 INA219 Power Monitoring System")
-    print("🗄️ Phase 3.1: SQLite Database Integration & Data Storage")
+    print("🧠 Phase 4.1: Advanced Data Analysis & Outlier Detection")
     print("=" * 60)
     
-    # 서버 실행
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    # 서버 실행 - 멀티프로세싱 문제 해결
+    try:
+        uvicorn.run(
+            app,  # 직접 앱 객체 전달 (문자열 대신)
+            host="0.0.0.0",
+            port=8000,
+            reload=False,  # reload=False로 멀티프로세싱 문제 방지
+            log_level="info",
+            access_log=True
+        )
+    except KeyboardInterrupt:
+        print("\n🛑 Server stopped by user")
+    except Exception as e:
+        print(f"❌ Server error: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 if __name__ == "__main__":
