@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Scale Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .monitor { 
+            background: #f0f0f0; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .chart-container { 
+            width: 800px; 
+            height: 400px; 
+            margin: 20px 0;
+            position: relative;
+        }
+        .controls {
+            margin: 10px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 8px 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        .log {
+            height: 200px;
+            overflow-y: auto;
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Chart Scale Monitor - Y축 확장 원인 추적</h1>
+    
+    <div class="monitor">
+        <h3>📊 Current Scale Values:</h3>
+        <div id="scaleMonitor">Not initialized</div>
+    </div>
+    
+    <div class="controls">
+        <button onclick="startMonitoring()">🔄 Start Monitoring</button>
+        <button onclick="stopMonitoring()">⏹️ Stop Monitoring</button>
+        <button onclick="addTestData()">📈 Add Test Data</button>
+        <button onclick="forceFixScale()">🔧 Force Fix Scale</button>
+        <button onclick="clearLog()">🗑️ Clear Log</button>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="testChart"></canvas>
+    </div>
+    
+    <div class="monitor">
+        <h3>📋 Scale Change Log:</h3>
+        <div class="log" id="scaleLog"></div>
+    </div>
+
+    <script>
+        let testChart = null;
+        let monitorInterval = null;
+        let dataCount = 0;
+        let lastScaleValues = { y: {min: null, max: null}, y1: {min: null, max: null} };
+        
+        // 테스트 데이터
+        const testData = {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Voltage (V)',
+                    data: [],
+                    borderColor: '#FF6B6B',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.1,
+                    pointRadius: 1
+                },
+                {
+                    label: 'Current (A)',
+                    data: [],
+                    borderColor: '#4ECDC4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.1,
+                    pointRadius: 1
+                },
+                {
+                    label: 'Power (W)',
+                    data: [],
+                    borderColor: '#FFE66D',
+                    backgroundColor: 'rgba(255, 230, 109, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.1,
+                    pointRadius: 1
+                }
+            ]
+        };
+        
+        function log(message) {
+            const logElement = document.getElementById('scaleLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${timestamp}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[Scale Monitor] ${message}`);
+        }
+        
+        function updateScaleDisplay() {
+            if (!testChart) return;
+            
+            const y = testChart.options.scales.y;
+            const y1 = testChart.options.scales.y1;
+            
+            const scaleInfo = `
+Y-Axis (Voltage): min=${y.min}, max=${y.max}
+Y1-Axis (Current/Power): min=${y1.min}, max=${y1.max}
+Data Points: ${testData.datasets[0].data.length}
+Chart Type: ${testChart.config.type}
+            `;
+            
+            document.getElementById('scaleMonitor').innerHTML = scaleInfo.trim();
+            
+            // 스케일 변화 감지
+            const currentY = { min: y.min, max: y.max };
+            const currentY1 = { min: y1.min, max: y1.max };
+            
+            if (lastScaleValues.y.min !== null) {
+                if (lastScaleValues.y.min !== currentY.min || lastScaleValues.y.max !== currentY.max) {
+                    log(`🚨 Y-AXIS CHANGED: (${lastScaleValues.y.min}, ${lastScaleValues.y.max}) → (${currentY.min}, ${currentY.max})`);
+                }
+                if (lastScaleValues.y1.min !== currentY1.min || lastScaleValues.y1.max !== currentY1.max) {
+                    log(`🚨 Y1-AXIS CHANGED: (${lastScaleValues.y1.min}, ${lastScaleValues.y1.max}) → (${currentY1.min}, ${currentY1.max})`);
+                }
+            }
+            
+            lastScaleValues = { y: currentY, y1: currentY1 };
+        }
+        
+        function initChart() {
+            const ctx = document.getElementById('testChart').getContext('2d');
+            
+            testChart = new Chart(ctx, {
+                type: 'line',
+                data: testData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Scale Monitor Test Chart'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            },
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    minute: 'HH:mm',
+                                    hour: 'MM/dd HH:mm'
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Voltage (V)',
+                                color: '#FF6B6B'
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(255, 107, 107, 0.2)',
+                            },
+                            min: 0,
+                            max: 6,
+                            beginAtZero: true,
+                            grace: 0,
+                            bounds: 'data'
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Current (A) / Power (W)',
+                                color: '#4ECDC4'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            min: 0,
+                            max: 5,
+                            beginAtZero: true,
+                            grace: 0,
+                            bounds: 'data'
+                        }
+                    },
+                    animation: {
+                        duration: 300
+                    }
+                }
+            });
+            
+            log('✅ Test chart initialized with fixed scales: Y(0-6), Y1(0-5)');
+            updateScaleDisplay();
+        }
+        
+        function addTestData() {
+            if (!testChart) return;
+            
+            const now = new Date();
+            const voltage = 4.5 + Math.random() * 1; // 4.5-5.5V
+            const current = 0.1 + Math.random() * 0.4; // 0.1-0.5A
+            const power = voltage * current; // Calculated power
+            
+            // 데이터 추가
+            testData.labels.push(now);
+            testData.datasets[0].data.push({x: now, y: voltage});
+            testData.datasets[1].data.push({x: now, y: current});
+            testData.datasets[2].data.push({x: now, y: power});
+            
+            dataCount++;
+            log(`📊 Added data point ${dataCount}: V=${voltage.toFixed(3)}, A=${current.toFixed(3)}, W=${power.toFixed(3)}`);
+            
+            // 차트 업데이트 전 스케일 값 기록
+            const beforeY = {min: testChart.options.scales.y.min, max: testChart.options.scales.y.max};
+            const beforeY1 = {min: testChart.options.scales.y1.min, max: testChart.options.scales.y1.max};
+            
+            // 차트 업데이트
+            testChart.update('none');
+            
+            // 차트 업데이트 후 스케일 값 확인
+            const afterY = {min: testChart.options.scales.y.min, max: testChart.options.scales.y.max};
+            const afterY1 = {min: testChart.options.scales.y1.min, max: testChart.options.scales.y1.max};
+            
+            if (beforeY.min !== afterY.min || beforeY.max !== afterY.max) {
+                log(`⚠️ SCALE CHANGED AFTER UPDATE: Y(${beforeY.min}, ${beforeY.max}) → Y(${afterY.min}, ${afterY.max})`);
+            }
+            if (beforeY1.min !== afterY1.min || beforeY1.max !== afterY1.max) {
+                log(`⚠️ SCALE CHANGED AFTER UPDATE: Y1(${beforeY1.min}, ${beforeY1.max}) → Y1(${afterY1.min}, ${afterY1.max})`);
+            }
+            
+            updateScaleDisplay();
+        }
+        
+        function forceFixScale() {
+            if (!testChart) return;
+            
+            log('🔧 Forcing scale fix...');
+            testChart.options.scales.y.min = 0;
+            testChart.options.scales.y.max = 6;
+            testChart.options.scales.y1.min = 0;
+            testChart.options.scales.y1.max = 5;
+            
+            testChart.update('none');
+            log('✅ Scale fixed to Y(0-6), Y1(0-5)');
+            updateScaleDisplay();
+        }
+        
+        function startMonitoring() {
+            if (monitorInterval) clearInterval(monitorInterval);
+            
+            monitorInterval = setInterval(() => {
+                updateScaleDisplay();
+                addTestData(); // 자동으로 데이터 추가
+            }, 2000);
+            
+            log('🔄 Started automatic monitoring (2s interval)');
+        }
+        
+        function stopMonitoring() {
+            if (monitorInterval) {
+                clearInterval(monitorInterval);
+                monitorInterval = null;
+                log('⏹️ Stopped automatic monitoring');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('scaleLog').innerHTML = '';
+        }
+        
+        // 초기화
+        window.onload = function() {
+            initChart();
+            log('🚀 Scale Monitor initialized');
+            log('📋 Use buttons to test scale behavior');
+        };
+    </script>
+</body>
+</html>

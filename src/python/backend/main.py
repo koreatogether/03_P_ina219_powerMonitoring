@@ -132,6 +132,7 @@ class PowerMonitoringServer:
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f5f5;
+            overflow-x: hidden;
         }
         
         .header {
@@ -253,7 +254,8 @@ class PowerMonitoringServer:
         }
         
         .log {
-            height: 300px;
+            height: 200px;
+            max-height: 200px;
             overflow-y: auto;
             background-color: #000;
             color: #00ff00;
@@ -261,6 +263,8 @@ class PowerMonitoringServer:
             border-radius: 5px;
             font-family: 'Courier New', monospace;
             font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
         }
         
         .stats {
@@ -391,8 +395,112 @@ class PowerMonitoringServer:
             background-color: white;
             border-radius: 5px;
         }
+        
+        /* 히스토리 그래프 스타일 */
+        .history-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 8px;
+        }
+        
+        .time-range-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .btn-time-range {
+            padding: 8px 16px;
+            border: 2px solid #dee2e6;
+            border-radius: 20px;
+            background-color: white;
+            color: #6c757d;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-time-range:hover {
+            border-color: #007bff;
+            color: #007bff;
+            transform: translateY(-1px);
+        }
+        
+        .btn-time-range.active {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            border-color: #007bff;
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,123,255,0.3);
+        }
+        
+        .history-actions {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-history {
+            padding: 6px 10px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background-color: white;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+        
+        .btn-history:hover {
+            background-color: #f8f9fa;
+            border-color: #adb5bd;
+            transform: translateY(-1px);
+        }
+        
+        .history-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .history-stat {
+            font-weight: 500;
+        }
+        
+        #historyChart {
+            background-color: white;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+            height: 400px !important;
+            max-height: 400px !important;
+            width: 100% !important;
+            display: block;
+        }
+
+        .history-panel {
+            position: relative;
+            height: 600px;
+            overflow: hidden;
+        }
+        
+        .chart-container {
+            height: 400px !important;
+            width: 100% !important;
+            position: relative;
+            overflow: hidden;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 </head>
 <body>
     <div class="header">
@@ -529,6 +637,45 @@ class PowerMonitoringServer:
         </div>
     </div>
     
+    <div class="panel history-panel">
+        <h3>📈 48-Hour History Chart</h3>
+        
+        <div class="history-controls">
+            <div class="time-range-buttons">
+                <button class="btn-time-range active" data-hours="1">1H</button>
+                <button class="btn-time-range" data-hours="6">6H</button>
+                <button class="btn-time-range" data-hours="24">24H</button>
+                <button class="btn-time-range" data-hours="48">48H</button>
+            </div>
+            
+            <div class="history-actions">
+                <button class="btn-history" onclick="refreshHistoryChart()">🔄 Refresh</button>
+                <button class="btn-history" onclick="toggleAutoRefresh()">⏱️ Auto</button>
+                <button class="btn-history" onclick="downloadHistoryData()">💾 Export</button>
+                <button class="btn-history" onclick="toggleHistoryMode()">📊 Mode</button>
+                <button class="btn-history" onclick="zoomInHistory()">🔍+ Zoom In</button>
+                <button class="btn-history" onclick="zoomOutHistory()">🔍- Zoom Out</button>
+                <button class="btn-history" onclick="resetHistoryZoom()">🔄 Reset</button>
+            </div>
+        </div>
+        
+        <div class="history-info">
+            <div class="history-stat">
+                <span id="historyDataCount">0</span> data points
+            </div>
+            <div class="history-stat">
+                <span id="historyTimeRange">Last 1 hour</span>
+            </div>
+            <div class="history-stat">
+                Status: <span id="historyStatus">Ready</span>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <canvas id="historyChart"></canvas>
+        </div>
+    </div>
+    
     <div class="panel">
         <h3>📋 Message Log</h3>
         <div class="log" id="messageLog"></div>
@@ -557,7 +704,7 @@ class PowerMonitoringServer:
             power: { max: 2.0 }
         };
         
-        // Chart.js 설정
+        // Chart.js 설정 (실시간)
         let powerChart = null;
         const maxDataPoints = 60; // 60초 버퍼
         const chartData = {
@@ -590,13 +737,66 @@ class PowerMonitoringServer:
             ]
         };
         
+        // 히스토리 차트 설정
+        let historyChart = null;
+        let currentHistoryHours = 1;
+        let historyMode = 'measurements'; // 'measurements' or 'statistics'
+        let autoRefreshEnabled = false;
+        let autoRefreshInterval = null;
+        const historyData = {
+            labels: [],
+            datasets: [
+                {
+                    label: 'Voltage (V)',
+                    data: [],
+                    borderColor: '#FF6B6B',
+                    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+                    yAxisID: 'y',
+                    tension: 0.1,
+                    pointRadius: 1,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Current (A)',
+                    data: [],
+                    borderColor: '#4ECDC4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.1,
+                    pointRadius: 1,
+                    pointHoverRadius: 4
+                },
+                {
+                    label: 'Power (W)',
+                    data: [],
+                    borderColor: '#FFE66D',
+                    backgroundColor: 'rgba(255, 230, 109, 0.1)',
+                    yAxisID: 'y1',
+                    tension: 0.1,
+                    pointRadius: 1,
+                    pointHoverRadius: 4
+                }
+            ]
+        };
+        
+        let logCount = 0;
+        const MAX_LOG_ENTRIES = 50;
+        
         function log(message, type = 'info') {
             const logElement = document.getElementById('messageLog');
             const timestamp = new Date().toLocaleTimeString();
             const color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : '#00ff00';
             
+            // 로그 항목이 너무 많으면 오래된 항목 제거
+            if (logCount >= MAX_LOG_ENTRIES) {
+                const lines = logElement.innerHTML.split('\\n');
+                logElement.innerHTML = lines.slice(-MAX_LOG_ENTRIES + 10).join('\\n');
+                logCount = MAX_LOG_ENTRIES - 10;
+            }
+            
             logElement.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\\n`;
             logElement.scrollTop = logElement.scrollHeight;
+            logCount++;
         }
         
         function updateStats() {
@@ -909,10 +1109,515 @@ class PowerMonitoringServer:
             }
         }
         
+        // Chart.js 플러그인 등록은 자동으로 처리됨
+        
+        // 히스토리 차트 스케일 모니터링 및 고정 함수
+        function logScaleStatus(context) {
+            if (!historyChart) return;
+            
+            const y = historyChart.options.scales.y;
+            const y1 = historyChart.options.scales.y1;
+            
+            log(`📏 [${context}] Scale Status: Y(${y.min}-${y.max}), Y1(${y1.min}-${y1.max})`, 'info');
+            
+            // 스케일이 틀렸다면 경고
+            if (y.min !== 0 || y.max !== 6 || y1.min !== 0 || y1.max !== 5) {
+                log(`🚨 [${context}] SCALE DRIFT DETECTED! Expected Y(0-6), Y1(0-5)`, 'error');
+                return false;
+            }
+            return true;
+        }
+        
+        function forceHistoryScale(context = 'Manual') {
+            if (!historyChart) return;
+            
+            log(`🔧 [${context}] Forcing scale fix...`, 'info');
+            
+            // 현재 스케일 기록
+            logScaleStatus(`Before Fix - ${context}`);
+            
+            historyChart.options.scales.y.min = 0;
+            historyChart.options.scales.y.max = 6;
+            historyChart.options.scales.y1.min = 0;
+            historyChart.options.scales.y1.max = 5;
+            
+            // 즉시 적용
+            historyChart.update('none');
+            
+            // 수정 후 스케일 확인
+            logScaleStatus(`After Fix - ${context}`);
+        }
+
+        // 히스토리 차트 초기화
+        function initHistoryChart() {
+            const canvas = document.getElementById('historyChart');
+            if (!canvas) {
+                log('❌ History chart canvas not found', 'error');
+                return;
+            }
+            
+            // 기존 차트가 있다면 제거
+            if (historyChart) {
+                historyChart.destroy();
+                historyChart = null;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            log('📊 Initializing history chart...', 'info');
+            
+            try {
+                historyChart = new Chart(ctx, {
+                type: 'line',
+                data: historyData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    aspectRatio: 2,
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Power Monitoring History (Last 1 hour)',
+                            font: { size: 16 }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            display: true,
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            },
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    minute: 'HH:mm',
+                                    hour: 'MM/dd HH:mm'
+                                }
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Voltage (V)',
+                                color: '#FF6B6B'
+                            },
+                            grid: {
+                                display: true,
+                                color: 'rgba(255, 107, 107, 0.2)',
+                            },
+                            min: 0,
+                            max: 6,
+                            beginAtZero: true,
+                            grace: 0,
+                            bounds: 'data',
+                            ticks: {
+                                min: 0,
+                                max: 6,
+                                stepSize: 1
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Current (A) / Power (W)',
+                                color: '#4ECDC4'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                            min: 0,
+                            max: 5,
+                            beginAtZero: true,
+                            grace: 0,
+                            bounds: 'data',
+                            ticks: {
+                                min: 0,
+                                max: 5,
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    animation: {
+                        duration: 300
+                    },
+                    onResize: function(chart, size) {
+                        // 리사이즈 시에도 스케일 고정 유지
+                        chart.options.scales.y.min = 0;
+                        chart.options.scales.y.max = 6;
+                        chart.options.scales.y1.min = 0;
+                        chart.options.scales.y1.max = 5;
+                        log('🔧 [onResize] Scale fixed during resize', 'info');
+                    }
+                }
+            });
+            
+            // 초기화 직후 스케일 상태 체크
+            logScaleStatus('Immediately After Init');
+            
+            // 초기화 후 스케일 강제 고정
+            setTimeout(() => {
+                logScaleStatus('100ms After Init');
+                forceHistoryScale('Post-Init');
+                log('✅ History chart initialized with monitoring', 'success');
+            }, 100);
+            
+            } catch (error) {
+                log(`❌ Failed to initialize history chart: ${error.message}`, 'error');
+                console.error('Chart initialization error:', error);
+            }
+        }
+        
+        // 히스토리 데이터 로드
+        async function loadHistoryData(hours = 1) {
+            try {
+                document.getElementById('historyStatus').textContent = 'Loading...';
+                log(`📊 Loading history data: ${hours}h (${historyMode} mode)`, 'info');
+                
+                const endpoint = historyMode === 'measurements' 
+                    ? `/api/measurements?hours=${hours}&limit=2000`
+                    : `/api/statistics?hours=${hours}`;
+                
+                const response = await fetch(endpoint);
+                const result = await response.json();
+                
+                log(`📡 API Response: ${JSON.stringify(result).substring(0, 200)}...`, 'info');
+                
+                if (response.ok && result.data && result.data.length > 0) {
+                    log(`📊 Processing ${result.data.length} data points`, 'info');
+                    updateHistoryChart(result.data);
+                    updateHistoryInfo(result.data.length, hours);
+                    log(`✅ History data loaded: ${result.data.length} points (${hours}h)`, 'success');
+                    document.getElementById('historyStatus').textContent = 'Ready';
+                } else {
+                    log(`⚠️ No history data available for ${hours}h - Response: ${JSON.stringify(result)}`, 'info');
+                    // 빈 차트 표시
+                    updateHistoryChart([]);
+                    updateHistoryInfo(0, hours);
+                    document.getElementById('historyStatus').textContent = 'No Data';
+                }
+            } catch (error) {
+                log(`❌ Failed to load history data: ${error.message}`, 'error');
+                document.getElementById('historyStatus').textContent = 'Error';
+                // 빈 차트 표시
+                updateHistoryChart([]);
+                updateHistoryInfo(0, hours);
+            }
+        }
+        
+        // 히스토리 차트 데이터 업데이트
+        function updateHistoryChart(data) {
+            if (!historyChart) {
+                log('❌ History chart not initialized', 'error');
+                return;
+            }
+            
+            // 데이터 정리
+            historyData.labels = [];
+            historyData.datasets[0].data = [];
+            historyData.datasets[1].data = [];
+            historyData.datasets[2].data = [];
+            
+            if (data && data.length > 0) {
+                log(`🔍 Processing data: First item = ${JSON.stringify(data[0])}`, 'info');
+                
+                data.forEach((item, index) => {
+                    const timestamp = new Date(item.timestamp || item.minute_timestamp);
+                    historyData.labels.push(timestamp);
+                    
+                    if (historyMode === 'measurements') {
+                        const voltage = item.voltage;
+                        const current = item.current;
+                        const power = item.power;
+                        
+                        historyData.datasets[0].data.push({x: timestamp, y: voltage});
+                        historyData.datasets[1].data.push({x: timestamp, y: current});
+                        historyData.datasets[2].data.push({x: timestamp, y: power});
+                        
+                        // 첫 번째 데이터만 로그
+                        if (index === 0) {
+                            log(`📊 First data: V=${voltage}V, A=${current}A, W=${power}W`, 'info');
+                        }
+                    } else {
+                        // 통계 모드: 평균값 사용
+                        const voltage = item.voltage_avg;
+                        const current = item.current_avg;
+                        const power = item.power_avg;
+                        
+                        historyData.datasets[0].data.push({x: timestamp, y: voltage});
+                        historyData.datasets[1].data.push({x: timestamp, y: current});
+                        historyData.datasets[2].data.push({x: timestamp, y: power});
+                        
+                        // 첫 번째 통계만 로그
+                        if (index === 0) {
+                            log(`📊 First stats: V=${voltage}V, A=${current}A, W=${power}W (avg)`, 'info');
+                        }
+                    }
+                });
+                log(`📈 Chart updated with ${data.length} data points`, 'info');
+                log(`📊 Datasets: V=${historyData.datasets[0].data.length}, A=${historyData.datasets[1].data.length}, W=${historyData.datasets[2].data.length}`, 'info');
+            } else {
+                log('📊 Empty chart displayed - no data to process', 'info');
+            }
+            
+            // 차트 제목 업데이트
+            historyChart.options.plugins.title.text = 
+                `Power Monitoring History (Last ${currentHistoryHours} hour${currentHistoryHours > 1 ? 's' : ''}) - ${historyMode.toUpperCase()}`;
+            
+            // 차트 업데이트 전 스케일 상태 체크
+            logScaleStatus('Before Chart Update');
+            
+            // 첫 번째 차트 업데이트 (데이터 적용)
+            historyChart.update('none');
+            
+            // 첫 번째 업데이트 후 스케일 체크
+            const scaleOK = logScaleStatus('After First Update');
+            
+            if (!scaleOK) {
+                log('🔧 Scale drift detected after data update, fixing...', 'error');
+                
+                // 스케일이 자동으로 변경되는 것을 방지하기 위해 다시 설정
+                historyChart.options.scales.y.min = 0;
+                historyChart.options.scales.y.max = 6;
+                historyChart.options.scales.y1.min = 0;
+                historyChart.options.scales.y1.max = 5;
+                
+                // 다시 한번 업데이트하여 스케일 적용
+                historyChart.update('none');
+                
+                // 최종 스케일 확인
+                logScaleStatus('After Scale Fix');
+            }
+            
+            log(`🎨 Chart render complete`, 'success');
+        }
+        
+        // 히스토리 정보 업데이트
+        function updateHistoryInfo(dataCount, hours) {
+            document.getElementById('historyDataCount').textContent = dataCount;
+            document.getElementById('historyTimeRange').textContent = 
+                `Last ${hours} hour${hours > 1 ? 's' : ''}`;
+        }
+        
+        // 시간 범위 버튼 클릭 이벤트
+        function setupHistoryControls() {
+            document.querySelectorAll('.btn-time-range').forEach(button => {
+                button.addEventListener('click', function() {
+                    // 활성 버튼 변경
+                    document.querySelectorAll('.btn-time-range').forEach(btn => 
+                        btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // 시간 범위 업데이트
+                    currentHistoryHours = parseInt(this.dataset.hours);
+                    loadHistoryData(currentHistoryHours);
+                });
+            });
+        }
+        
+        // 히스토리 차트 새로고침
+        function refreshHistoryChart() {
+            loadHistoryData(currentHistoryHours);
+        }
+        
+        // 히스토리 모드 토글
+        function toggleHistoryMode() {
+            historyMode = historyMode === 'measurements' ? 'statistics' : 'measurements';
+            loadHistoryData(currentHistoryHours);
+            
+            const modeText = historyMode === 'measurements' ? 'Raw Data' : 'Statistics';
+            log(`📊 History mode changed to: ${modeText}`, 'info');
+        }
+        
+        // 자동 새로고침 토글
+        function toggleAutoRefresh() {
+            autoRefreshEnabled = !autoRefreshEnabled;
+            
+            if (autoRefreshEnabled) {
+                // 30초마다 자동 새로고침 시작
+                autoRefreshInterval = setInterval(() => {
+                    log(`🔄 [Auto-Refresh] Loading history data (${currentHistoryHours}h)`, 'info');
+                    loadHistoryData(currentHistoryHours);
+                }, 30000);
+                
+                log(`⏱️ Auto-refresh enabled (30s interval)`, 'success');
+                
+                // 버튼 색상 변경
+                const button = document.querySelector('button[onclick="toggleAutoRefresh()"]');
+                if (button) {
+                    button.style.backgroundColor = '#28a745';
+                    button.style.color = 'white';
+                    button.textContent = '⏱️ Auto ON';
+                }
+            } else {
+                // 자동 새로고침 중지
+                if (autoRefreshInterval) {
+                    clearInterval(autoRefreshInterval);
+                    autoRefreshInterval = null;
+                }
+                
+                log(`⏹️ Auto-refresh disabled`, 'info');
+                
+                // 버튼 원래 색상으로 복원
+                const button = document.querySelector('button[onclick="toggleAutoRefresh()"]');
+                if (button) {
+                    button.style.backgroundColor = '';
+                    button.style.color = '';
+                    button.textContent = '⏱️ Auto';
+                }
+            }
+        }
+        
+        // 히스토리 차트 줌 기능
+        function zoomInHistory() {
+            if (!historyChart) return;
+            
+            const yScale = historyChart.options.scales.y;
+            const y1Scale = historyChart.options.scales.y1;
+            
+            // 전압축 줌인 (범위를 50% 축소)
+            const yRange = yScale.max - yScale.min;
+            const yCenter = (yScale.max + yScale.min) / 2;
+            const newYRange = yRange * 0.5;
+            yScale.min = yCenter - newYRange / 2;
+            yScale.max = yCenter + newYRange / 2;
+            
+            // 전류/전력축 줌인
+            const y1Range = y1Scale.max - y1Scale.min;
+            const y1Center = (y1Scale.max + y1Scale.min) / 2;
+            const newY1Range = y1Range * 0.5;
+            y1Scale.min = y1Center - newY1Range / 2;
+            y1Scale.max = y1Center + newY1Range / 2;
+            
+            historyChart.update('none');
+            log(`🔍+ Zoomed in: V(${yScale.min.toFixed(1)} - ${yScale.max.toFixed(1)}), A/W(${y1Scale.min.toFixed(1)} - ${y1Scale.max.toFixed(1)})`, 'info');
+        }
+        
+        function zoomOutHistory() {
+            if (!historyChart) return;
+            
+            const yScale = historyChart.options.scales.y;
+            const y1Scale = historyChart.options.scales.y1;
+            
+            // 전압축 줌아웃 (범위를 200% 확대)
+            const yRange = yScale.max - yScale.min;
+            const yCenter = (yScale.max + yScale.min) / 2;
+            const newYRange = yRange * 2;
+            yScale.min = Math.max(-1, yCenter - newYRange / 2);
+            yScale.max = Math.min(10, yCenter + newYRange / 2);
+            
+            // 전류/전력축 줌아웃
+            const y1Range = y1Scale.max - y1Scale.min;
+            const y1Center = (y1Scale.max + y1Scale.min) / 2;
+            const newY1Range = y1Range * 2;
+            y1Scale.min = Math.max(-1, y1Center - newY1Range / 2);
+            y1Scale.max = Math.min(20, y1Center + newY1Range / 2);
+            
+            historyChart.update('none');
+            log(`🔍- Zoomed out: V(${yScale.min.toFixed(1)} - ${yScale.max.toFixed(1)}), A/W(${y1Scale.min.toFixed(1)} - ${y1Scale.max.toFixed(1)})`, 'info');
+        }
+        
+        function resetHistoryZoom() {
+            if (!historyChart) return;
+            
+            log('🔄 Resetting zoom to default scale...', 'info');
+            logScaleStatus('Before Reset');
+            
+            // 원래 스케일로 리셋 (실시간 차트와 동일)
+            historyChart.options.scales.y.min = 0;
+            historyChart.options.scales.y.max = 6;
+            historyChart.options.scales.y1.min = 0;
+            historyChart.options.scales.y1.max = 5;
+            
+            historyChart.update('none');
+            
+            logScaleStatus('After Reset');
+            log(`✅ Zoom reset complete`, 'success');
+        }
+
+        // 히스토리 데이터 다운로드
+        async function downloadHistoryData() {
+            try {
+                const endpoint = `/api/measurements?hours=${currentHistoryHours}&limit=10000`;
+                const response = await fetch(endpoint);
+                const result = await response.json();
+                
+                if (response.ok && result.data) {
+                    const csvContent = convertToCSV(result.data);
+                    downloadCSV(csvContent, `power_history_${currentHistoryHours}h.csv`);
+                    log(`💾 History data exported: ${result.data.length} records`, 'success');
+                } else {
+                    throw new Error('Failed to fetch data');
+                }
+            } catch (error) {
+                log(`❌ Export failed: ${error.message}`, 'error');
+            }
+        }
+        
+        // CSV 변환
+        function convertToCSV(data) {
+            const headers = ['timestamp', 'voltage', 'current', 'power', 'sequence_number', 'sensor_status'];
+            const csvRows = [headers.join(',')];
+            
+            data.forEach(row => {
+                const values = headers.map(header => {
+                    const value = row[header];
+                    return typeof value === 'string' ? `"${value}"` : value;
+                });
+                csvRows.push(values.join(','));
+            });
+            
+            return csvRows.join('\\n');
+        }
+        
+        // CSV 다운로드
+        function downloadCSV(csvContent, filename) {
+            const blob = new Blob([csvContent], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', filename);
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        }
+        
         window.onload = function() {
             log('🚀 WebSocket Dashboard Started', 'success');
             log('📈 Initializing real-time chart...', 'info');
             initChart();
+            
+            // 히스토리 차트 초기화를 지연
+            setTimeout(() => {
+                log('📊 Initializing history chart...', 'info');
+                initHistoryChart();
+                setupHistoryControls();
+                
+                // 차트 초기화 후 데이터 로드
+                setTimeout(() => {
+                    loadHistoryData(1); // 기본 1시간 데이터 로드
+                }, 500);
+            }, 1000);
+            
             log('Click "Connect" to start receiving real-time data', 'info');
         };
         
@@ -923,6 +1628,34 @@ class PowerMonitoringServer:
         };
         
         setInterval(updateStats, 1000);
+        
+        // 히스토리 차트 스케일 강제 유지 (1초마다 체크 - 더 빠른 감지)
+        setInterval(() => {
+            if (historyChart) {
+                const currentYMin = historyChart.options.scales.y.min;
+                const currentYMax = historyChart.options.scales.y.max;
+                const currentY1Min = historyChart.options.scales.y1.min;
+                const currentY1Max = historyChart.options.scales.y1.max;
+                
+                // 스케일이 변경되었다면 강제로 재설정
+                if (currentYMin !== 0 || currentYMax !== 6 || currentY1Min !== 0 || currentY1Max !== 5) {
+                    log(`🔧 [Auto-Fix] Scale drift detected: V(${currentYMin}-${currentYMax}) → V(0-6), A/W(${currentY1Min}-${currentY1Max}) → A/W(0-5)`, 'error');
+                    
+                    // 즉시 강제 수정
+                    historyChart.options.scales.y.min = 0;
+                    historyChart.options.scales.y.max = 6;
+                    historyChart.options.scales.y1.min = 0;
+                    historyChart.options.scales.y1.max = 5;
+                    historyChart.options.scales.y.ticks.min = 0;
+                    historyChart.options.scales.y.ticks.max = 6;
+                    historyChart.options.scales.y1.ticks.min = 0;
+                    historyChart.options.scales.y1.ticks.max = 5;
+                    
+                    historyChart.update('none');
+                    log(`✅ [Auto-Fix] Scale forcefully restored`, 'success');
+                }
+            }
+        }, 1000);
     </script>
 </body>
 </html>
