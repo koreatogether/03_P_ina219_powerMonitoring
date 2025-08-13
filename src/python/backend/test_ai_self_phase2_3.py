@@ -85,7 +85,7 @@ class AIPhase23Tester:
             required_elements = {
                 'header': {'selector': '.header', 'expected_text': 'INA219 Power Monitoring System'},
                 'phase_text': {'selector': '.header p', 'expected_text': 'Phase 2.3'},
-                'connection_panel': {'selector': '.panel', 'count': 1},
+                'connection_panels': {'selector': '.panel', 'count': 4},
                 'stats_panel': {'selector': '.stats-panel', 'count': 1},
                 'chart_canvas': {'selector': '#powerChart', 'count': 1},
                 'voltage_metric': {'selector': '#voltage', 'count': 1},
@@ -370,12 +370,13 @@ class AIPhase23Tester:
                 r"label:\s*['\"]Power.*W['\"]"
             ]
             
+            dataset_labels = ['전압', '전류', '전력']
+            
             for i, pattern in enumerate(dataset_patterns):
                 if re.search(pattern, js_content):
-                    labels = ['전압', '전류', '전력']
-                    self.log_result(f"Chart 데이터셋: {labels[i]}", "PASS", f"{labels[i]} 데이터셋 설정 확인")
+                    self.log_result(f"Chart 데이터셋: {dataset_labels[i]}", "PASS", f"{dataset_labels[i]} 데이터셋 설정 확인")
                 else:
-                    self.log_result(f"Chart 데이터셋: {labels[i]}", "FAIL", f"{labels[i]} 데이터셋 설정 누락")
+                    self.log_result(f"Chart 데이터셋: {dataset_labels[i]}", "FAIL", f"{dataset_labels[i]} 데이터셋 설정 누락")
                     
             # Y축 설정 검증
             if 'yAxisID' in js_content:
@@ -385,12 +386,13 @@ class AIPhase23Tester:
                 
             # 색상 설정 검증
             chart_colors = ['#FF6B6B', '#4ECDC4', '#FFE66D']
+            color_labels = ['전압', '전류', '전력']
+            
             for i, color in enumerate(chart_colors):
                 if color in js_content:
-                    labels = ['전압', '전류', '전력']
-                    self.log_result(f"Chart 색상: {labels[i]}", "PASS", f"{labels[i]} 색상 {color} 확인")
+                    self.log_result(f"Chart 색상: {color_labels[i]}", "PASS", f"{color_labels[i]} 색상 {color} 확인")
                 else:
-                    self.log_result(f"Chart 색상: {labels[i]}", "WARNING", f"{labels[i]} 색상 {color} 미확인")
+                    self.log_result(f"Chart 색상: {color_labels[i]}", "WARNING", f"{color_labels[i]} 색상 {color} 미확인")
                     
         except Exception as e:
             self.log_result("Chart 설정 검증", "FAIL", f"Chart 검증 오류: {e}")
