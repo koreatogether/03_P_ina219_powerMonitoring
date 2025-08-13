@@ -1,27 +1,14 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
 INA219 Power Monitoring System - FastAPI Backend
-Phase 2.3: 1-Minute Statistics & Threshold Alerts
+Phase 2.1: WebSocket 실시간 통신 최소 구현
 
 기능:
 - FastAPI 기본 서버
-- WebSocket 엔드포인트  
+- WebSocket 엔드포인트
 - 시뮬레이터 연동
 - 실시간 데이터 브로드캐스팅
-- 1분 통계 패널
-- 임계값 알림 시스템
 """
-
-import os
-import sys
-
-# UTF-8 인코딩 강제 설정 (Windows 호환)
-if sys.platform.startswith('win'):
-    import codecs
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
-    os.environ['PYTHONIOENCODING'] = 'utf-8'
 
 import asyncio
 import json
@@ -255,105 +242,6 @@ class PowerMonitoringServer:
             margin-top: 15px;
         }
         
-        .stats-panel {
-            background: white;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .stats-metric {
-            text-align: center;
-            padding: 15px;
-            border-radius: 8px;
-            position: relative;
-        }
-        
-        .stats-metric.voltage {
-            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
-            color: white;
-        }
-        
-        .stats-metric.current {
-            background: linear-gradient(135deg, #4ecdc4 0%, #44a08d 100%);
-            color: white;
-        }
-        
-        .stats-metric.power {
-            background: linear-gradient(135deg, #ffe66d 0%, #ffcc02 100%);
-            color: #333;
-        }
-        
-        .stats-title {
-            font-size: 14px;
-            font-weight: bold;
-            margin-bottom: 10px;
-            opacity: 0.9;
-        }
-        
-        .stats-values {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        
-        .stats-value {
-            text-align: center;
-        }
-        
-        .stats-value-num {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 2px;
-        }
-        
-        .stats-value-label {
-            font-size: 10px;
-            opacity: 0.8;
-        }
-        
-        .alert-panel {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 15px;
-            border-radius: 8px;
-            margin-top: 15px;
-        }
-        
-        .alert-item {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-bottom: 8px;
-        }
-        
-        .alert-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .alert-indicator {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background-color: #28a745;
-        }
-        
-        .alert-indicator.warning {
-            background-color: #ffc107;
-        }
-        
-        .alert-indicator.danger {
-            background-color: #dc3545;
-        }
-        
         .stat-item {
             text-align: center;
             padding: 10px;
@@ -382,7 +270,7 @@ class PowerMonitoringServer:
 <body>
     <div class="header">
         <h1>🔋 INA219 Power Monitoring System</h1>
-        <p>Phase 2.3: 1-Minute Statistics & Threshold Alerts</p>
+        <p>Phase 2.1: WebSocket Real-time Communication</p>
     </div>
     
     <div class="container">
@@ -450,70 +338,6 @@ class PowerMonitoringServer:
         <canvas id="powerChart" width="800" height="300"></canvas>
     </div>
     
-    <div class="stats-panel">
-        <h3>📊 1-Minute Statistics</h3>
-        
-        <div class="stats-grid">
-            <div class="stats-metric voltage">
-                <div class="stats-title">⚡ Voltage</div>
-                <div class="stats-values">
-                    <div class="stats-value">
-                        <div class="stats-value-num" id="voltageMin">--</div>
-                        <div class="stats-value-label">MIN (V)</div>
-                    </div>
-                    <div class="stats-value">
-                        <div class="stats-value-num" id="voltageMax">--</div>
-                        <div class="stats-value-label">MAX (V)</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="stats-metric current">
-                <div class="stats-title">🔋 Current</div>
-                <div class="stats-values">
-                    <div class="stats-value">
-                        <div class="stats-value-num" id="currentMin">--</div>
-                        <div class="stats-value-label">MIN (A)</div>
-                    </div>
-                    <div class="stats-value">
-                        <div class="stats-value-num" id="currentMax">--</div>
-                        <div class="stats-value-label">MAX (A)</div>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="stats-metric power">
-                <div class="stats-title">💡 Power</div>
-                <div class="stats-values">
-                    <div class="stats-value">
-                        <div class="stats-value-num" id="powerMin">--</div>
-                        <div class="stats-value-label">MIN (W)</div>
-                    </div>
-                    <div class="stats-value">
-                        <div class="stats-value-num" id="powerMax">--</div>
-                        <div class="stats-value-label">MAX (W)</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="alert-panel">
-            <h4 style="margin: 0 0 10px 0;">🚨 Threshold Alerts</h4>
-            <div class="alert-item">
-                <div class="alert-indicator" id="voltageAlert"></div>
-                <span id="voltageAlertText">Voltage: Normal (4.5V - 5.5V)</span>
-            </div>
-            <div class="alert-item">
-                <div class="alert-indicator" id="currentAlert"></div>
-                <span id="currentAlertText">Current: Normal (< 0.5A)</span>
-            </div>
-            <div class="alert-item">
-                <div class="alert-indicator" id="powerAlert"></div>
-                <span id="powerAlertText">Power: Normal (< 2.0W)</span>
-            </div>
-        </div>
-    </div>
-    
     <div class="panel">
         <h3>📋 Message Log</h3>
         <div class="log" id="messageLog"></div>
@@ -526,21 +350,6 @@ class PowerMonitoringServer:
         let startTime = null;
         let lastMessageTime = 0;
         let messageRate = 0;
-        
-        // 1분 통계 데이터
-        let statsData = {
-            voltage: [],
-            current: [],
-            power: [],
-            startTime: null
-        };
-        
-        // 임계값 설정
-        const thresholds = {
-            voltage: { min: 4.5, max: 5.5 },
-            current: { max: 0.5 },
-            power: { max: 2.0 }
-        };
         
         // Chart.js 설정
         let powerChart = null;
@@ -642,9 +451,6 @@ class PowerMonitoringServer:
                         
                         // 차트에 데이터 추가
                         addDataToChart(measurement.v, measurement.a, measurement.w);
-                        
-                        // 통계 데이터 업데이트
-                        updateStatistics(measurement.v, measurement.a, measurement.w);
                         
                         document.getElementById('lastData').innerHTML = 
                             `V=${measurement.v}V, A=${measurement.a}A, W=${measurement.w}W<br>` +
@@ -793,104 +599,6 @@ class PowerMonitoringServer:
             // 차트 업데이트
             if (powerChart) {
                 powerChart.update('none'); // 애니메이션 없이 빠른 업데이트
-            }
-        }
-        
-        // 통계 데이터 업데이트 함수
-        function updateStatistics(voltage, current, power) {
-            const now = Date.now();
-            
-            // 1분 통계 시작 시간 설정
-            if (!statsData.startTime) {
-                statsData.startTime = now;
-            }
-            
-            // 데이터 추가
-            statsData.voltage.push(voltage);
-            statsData.current.push(current);
-            statsData.power.push(power);
-            
-            // 1분 이상된 데이터 제거
-            const oneMinute = 60 * 1000;
-            if (now - statsData.startTime > oneMinute) {
-                statsData.voltage.shift();
-                statsData.current.shift();
-                statsData.power.shift();
-            }
-            
-            // 통계 UI 업데이트
-            updateStatsDisplay();
-            
-            // 임계값 알림 체크
-            checkThresholds(voltage, current, power);
-        }
-        
-        // 통계 디스플레이 업데이트
-        function updateStatsDisplay() {
-            if (statsData.voltage.length === 0) return;
-            
-            // Min/Max 계산
-            const vMin = Math.min(...statsData.voltage);
-            const vMax = Math.max(...statsData.voltage);
-            const aMin = Math.min(...statsData.current);
-            const aMax = Math.max(...statsData.current);
-            const wMin = Math.min(...statsData.power);
-            const wMax = Math.max(...statsData.power);
-            
-            // UI 업데이트
-            document.getElementById('voltageMin').textContent = vMin.toFixed(3);
-            document.getElementById('voltageMax').textContent = vMax.toFixed(3);
-            document.getElementById('currentMin').textContent = aMin.toFixed(3);
-            document.getElementById('currentMax').textContent = aMax.toFixed(3);
-            document.getElementById('powerMin').textContent = wMin.toFixed(3);
-            document.getElementById('powerMax').textContent = wMax.toFixed(3);
-        }
-        
-        // 임계값 알림 체크
-        function checkThresholds(voltage, current, power) {
-            // 전압 체크
-            const voltageAlert = document.getElementById('voltageAlert');
-            const voltageText = document.getElementById('voltageAlertText');
-            
-            if (voltage < thresholds.voltage.min || voltage > thresholds.voltage.max) {
-                voltageAlert.className = 'alert-indicator danger';
-                voltageText.textContent = `Voltage: DANGER ${voltage.toFixed(3)}V (4.5V - 5.5V)`;
-            } else if (voltage < thresholds.voltage.min + 0.2 || voltage > thresholds.voltage.max - 0.2) {
-                voltageAlert.className = 'alert-indicator warning';
-                voltageText.textContent = `Voltage: WARNING ${voltage.toFixed(3)}V (4.5V - 5.5V)`;
-            } else {
-                voltageAlert.className = 'alert-indicator';
-                voltageText.textContent = `Voltage: Normal ${voltage.toFixed(3)}V (4.5V - 5.5V)`;
-            }
-            
-            // 전류 체크
-            const currentAlert = document.getElementById('currentAlert');
-            const currentText = document.getElementById('currentAlertText');
-            
-            if (current > thresholds.current.max) {
-                currentAlert.className = 'alert-indicator danger';
-                currentText.textContent = `Current: OVERLOAD ${current.toFixed(3)}A (< 0.5A)`;
-            } else if (current > thresholds.current.max - 0.1) {
-                currentAlert.className = 'alert-indicator warning';
-                currentText.textContent = `Current: WARNING ${current.toFixed(3)}A (< 0.5A)`;
-            } else {
-                currentAlert.className = 'alert-indicator';
-                currentText.textContent = `Current: Normal ${current.toFixed(3)}A (< 0.5A)`;
-            }
-            
-            // 전력 체크
-            const powerAlert = document.getElementById('powerAlert');
-            const powerText = document.getElementById('powerAlertText');
-            
-            if (power > thresholds.power.max) {
-                powerAlert.className = 'alert-indicator danger';
-                powerText.textContent = `Power: OVERLOAD ${power.toFixed(3)}W (< 2.0W)`;
-            } else if (power > thresholds.power.max - 0.3) {
-                powerAlert.className = 'alert-indicator warning';
-                powerText.textContent = `Power: WARNING ${power.toFixed(3)}W (< 2.0W)`;
-            } else {
-                powerAlert.className = 'alert-indicator';
-                powerText.textContent = `Power: Normal ${power.toFixed(3)}W (< 2.0W)`;
             }
         }
         
@@ -1065,7 +773,7 @@ def main():
     """메인 함수"""
     print("=" * 50)
     print("🔋 INA219 Power Monitoring System")
-    print("📊 Phase 2.3: 1-Minute Statistics & Threshold Alerts")
+    print("📡 Phase 2.1: WebSocket Real-time Communication")
     print("=" * 50)
     
     # 서버 실행
