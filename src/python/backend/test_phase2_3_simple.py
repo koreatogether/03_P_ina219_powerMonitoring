@@ -9,7 +9,7 @@ print("=" * 50)
 print("구현된 기능:")
 print("1. 1분 통계 패널 UI")
 print("   - Voltage Min/Max 표시")
-print("   - Current Min/Max 표시") 
+print("   - Current Min/Max 표시")
 print("   - Power Min/Max 표시")
 
 print("\n2. JavaScript 통계 로직")

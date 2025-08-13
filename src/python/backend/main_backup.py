@@ -12,18 +12,17 @@ Phase 2.1: WebSocket 실시간 통신 최소 구현
 
 import asyncio
 import json
-import sys
 import os
-from typing import List
+import sys
 from datetime import datetime
+from typing import List
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse
 import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 
 # 시뮬레이터 패키지 경로 추가
-sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 try:
     from simulator import create_simulator
@@ -34,27 +33,29 @@ except ImportError:
 
 class ConnectionManager:
     """WebSocket 연결 관리자"""
-    
+
     def __init__(self):
         self.active_connections: List[WebSocket] = []
-    
+
     async def connect(self, websocket: WebSocket):
         """클라이언트 연결"""
         await websocket.accept()
         self.active_connections.append(websocket)
         print(f"✅ Client connected. Total connections: {len(self.active_connections)}")
-    
+
     def disconnect(self, websocket: WebSocket):
         """클라이언트 연결 해제"""
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
-        print(f"🔌 Client disconnected. Total connections: {len(self.active_connections)}")
-    
+        print(
+            f"🔌 Client disconnected. Total connections: {len(self.active_connections)}"
+        )
+
     async def broadcast(self, message: str):
         """모든 연결된 클라이언트에게 메시지 브로드캐스트"""
         if not self.active_connections:
             return
-        
+
         disconnected = []
         for connection in self.active_connections:
             try:
@@ -62,7 +63,7 @@ class ConnectionManager:
             except Exception as e:
                 print(f"❌ Failed to send message to client: {e}")
                 disconnected.append(connection)
-        
+
         # 연결이 끊어진 클라이언트 제거
         for connection in disconnected:
             self.disconnect(connection)
@@ -70,23 +71,23 @@ class ConnectionManager:
 
 class PowerMonitoringServer:
     """전력 모니터링 서버"""
-    
+
     def __init__(self):
         self.app = FastAPI(
             title="INA219 Power Monitoring System",
             description="Real-time power monitoring with WebSocket",
-            version="1.0.0"
+            version="1.0.0",
         )
         self.manager = ConnectionManager()
         self.simulator = None
         self.is_running = False
-        
+
         # 라우트 설정
         self.setup_routes()
-    
+
     def setup_routes(self):
         """API 라우트 설정"""
-        
+
         @self.app.get("/")
         async def root():
             """루트 페이지 - 실시간 대시보드"""
@@ -621,17 +622,21 @@ class PowerMonitoringServer:
 </html>
             """
             return HTMLResponse(content=html_content)
-        
+
         @self.app.get("/status")
         async def status():
             """시스템 상태"""
             return {
                 "server": "running",
-                "simulator": "connected" if self.simulator and self.simulator.is_connected() else "disconnected",
+                "simulator": (
+                    "connected"
+                    if self.simulator and self.simulator.is_connected()
+                    else "disconnected"
+                ),
                 "websocket_connections": len(self.manager.active_connections),
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
             }
-        
+
         @self.app.websocket("/ws")
         async def websocket_endpoint(websocket: WebSocket):
             """WebSocket 엔드포인트"""
@@ -640,7 +645,9 @@ class PowerMonitoringServer:
                 while True:
                     # 클라이언트로부터 메시지 수신 (keep-alive)
                     try:
-                        data = await asyncio.wait_for(websocket.receive_text(), timeout=1.0)
+                        data = await asyncio.wait_for(
+                            websocket.receive_text(), timeout=1.0
+                        )
                         print(f"📨 Received from client: {data}")
                     except asyncio.TimeoutError:
                         pass  # 타임아웃은 정상 (keep-alive)
@@ -649,22 +656,25 @@ class PowerMonitoringServer:
                         break
             except WebSocketDisconnect:
                 self.manager.disconnect(websocket)
-        
+
         @self.app.post("/simulator/start")
         async def start_simulator():
             """시뮬레이터 시작"""
             if self.simulator and self.simulator.is_connected():
                 return {"status": "already_running"}
-            
+
             try:
                 self.simulator = create_simulator("MOCK")
                 if self.simulator.connect():
-                    return {"status": "started", "type": self.simulator.get_simulator_type()}
+                    return {
+                        "status": "started",
+                        "type": self.simulator.get_simulator_type(),
+                    }
                 else:
                     return {"status": "failed", "error": "Connection failed"}
             except Exception as e:
                 return {"status": "error", "error": str(e)}
-        
+
         @self.app.post("/simulator/stop")
         async def stop_simulator():
             """시뮬레이터 중지"""
@@ -673,71 +683,81 @@ class PowerMonitoringServer:
                 self.simulator = None
                 return {"status": "stopped"}
             return {"status": "not_running"}
-    
+
     async def data_collector(self):
         """시뮬레이터에서 데이터 수집 및 브로드캐스트"""
         print("🔄 Data collector started")
-        
+
         while self.is_running:
             if self.simulator and self.simulator.is_connected():
                 try:
                     # 시뮬레이터에서 데이터 읽기
                     data = self.simulator.read_data(timeout=0.1)
-                    
+
                     if data:
                         try:
                             # JSON 파싱
                             json_data = json.loads(data)
-                            
+
                             # 측정 데이터인지 확인
-                            if 'v' in json_data and 'a' in json_data and 'w' in json_data:
+                            if (
+                                "v" in json_data
+                                and "a" in json_data
+                                and "w" in json_data
+                            ):
                                 # WebSocket으로 브로드캐스트
                                 websocket_message = {
                                     "type": "measurement",
                                     "data": json_data,
-                                    "timestamp": datetime.now().isoformat()
+                                    "timestamp": datetime.now().isoformat(),
                                 }
-                                
-                                await self.manager.broadcast(json.dumps(websocket_message))
-                            
+
+                                await self.manager.broadcast(
+                                    json.dumps(websocket_message)
+                                )
+
                             elif json_data.get("type") == "status":
                                 # 상태 메시지 브로드캐스트
                                 websocket_message = {
                                     "type": "status",
                                     "message": json_data.get("message", ""),
-                                    "timestamp": datetime.now().isoformat()
+                                    "timestamp": datetime.now().isoformat(),
                                 }
-                                
-                                await self.manager.broadcast(json.dumps(websocket_message))
-                        
+
+                                await self.manager.broadcast(
+                                    json.dumps(websocket_message)
+                                )
+
                         except json.JSONDecodeError:
                             # JSON이 아닌 데이터는 무시
                             pass
-                
+
                 except Exception as e:
                     print(f"❌ Data collection error: {e}")
-            
+
             # 100ms 대기 (10Hz 업데이트)
             await asyncio.sleep(0.1)
-        
+
         print("🛑 Data collector stopped")
-    
+
     async def start_data_collection(self):
         """데이터 수집 시작"""
         if not self.is_running:
             self.is_running = True
-            
+
             # 시뮬레이터 자동 시작
             if not self.simulator:
                 self.simulator = create_simulator("MOCK")
                 if self.simulator.connect():
-                    print(f"✅ Simulator connected: {self.simulator.get_simulator_type()}")
+                    print(
+                        f"✅ Simulator connected: {self.simulator.get_simulator_type()}"
+                    )
                 else:
                     print("❌ Failed to connect simulator")
-            
+
             # 데이터 수집 태스크 시작
             asyncio.create_task(self.data_collector())
-    
+
     async def stop_data_collection(self):
         """데이터 수집 중지"""
         self.is_running = False
@@ -757,7 +777,7 @@ async def startup_event():
     print("🚀 INA219 Power Monitoring Server Starting...")
     print("📡 WebSocket endpoint: ws://localhost:8000/ws")
     print("🌐 API docs: http://localhost:8000/docs")
-    
+
     # 데이터 수집 시작
     await server.start_data_collection()
 
@@ -775,15 +795,9 @@ def main():
     print("🔋 INA219 Power Monitoring System")
     print("📡 Phase 2.1: WebSocket Real-time Communication")
     print("=" * 50)
-    
+
     # 서버 실행
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")
 
 
 if __name__ == "__main__":

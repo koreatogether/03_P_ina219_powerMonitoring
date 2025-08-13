@@ -270,8 +270,8 @@ class PowerMonitoringDashboard:
                 y=data["voltage"],
                 mode="lines+markers",
                 name="전압 (V)",
-                line=dict(color="blue", width=2),
-                marker=dict(size=4),
+                line={"color": "blue", "width": 2},
+                marker={"size": 4},
             )
         )
 
@@ -294,8 +294,8 @@ class PowerMonitoringDashboard:
                 y=data["current"],
                 mode="lines+markers",
                 name="전류 (mA)",
-                line=dict(color="red", width=2),
-                marker=dict(size=4),
+                line={"color": "red", "width": 2},
+                marker={"size": 4},
             )
         )
 
@@ -318,8 +318,8 @@ class PowerMonitoringDashboard:
                 y=data["power"],
                 mode="lines+markers",
                 name="전력 (mW)",
-                line=dict(color="green", width=2),
-                marker=dict(size=4),
+                line={"color": "green", "width": 2},
+                marker={"size": 4},
             )
         )
 
